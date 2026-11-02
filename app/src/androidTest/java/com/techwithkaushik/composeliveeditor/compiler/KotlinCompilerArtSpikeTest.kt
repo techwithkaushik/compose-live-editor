@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
 import org.jetbrains.kotlin.config.Services
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -17,27 +18,58 @@ import org.junit.runner.RunWith
 import java.io.File
 
 /**
- * Discovery test: proves whether the embeddable Kotlin compiler can execute on ART.
+ * Discovery tests: determine whether the embeddable Kotlin compiler can execute on ART and produce
+ * useful diagnostics. These tests do not yet claim Compose compilation or preview rendering.
  *
- * This intentionally does not yet claim Compose compilation. It compiles a tiny Kotlin file with no JDK
- * or stdlib classpath so the first failure isolates compiler/ART compatibility before adding Compose and D8.
- * Run on a physical ARM32 device with:
+ * Run on a physical Android device (ARM32 is the required first target):
+ *   adb install app-debug.apk
+ *   adb install app-debug-androidTest.apk
  *   adb shell am instrument -w com.techwithkaushik.composeliveeditor.test/androidx.test.runner.AndroidJUnitRunner
  */
 @RunWith(AndroidJUnit4::class)
 class KotlinCompilerArtSpikeTest {
     @Test
     fun compilerRunsOnArtAndEmitsClassFile() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val workDir = File(context.cacheDir, "kotlinc-art-spike").apply {
-            deleteRecursively()
-            mkdirs()
-        }
+        val workDir = newWorkDir("valid")
         val source = File(workDir, "Smoke.kt").apply {
             writeText("package spike\nfun answer(): Int = 42\n")
         }
         val output = File(workDir, "out").apply { mkdirs() }
         val messages = RecordingMessageCollector()
+        val exit = compile(source, output, messages)
+
+        val generated = File(output, "spike/SmokeKt.class")
+        assertTrue("Compiler exit=$exit; messages:\n${messages.dump()}", exit == ExitCode.OK)
+        assertTrue("Expected generated class at ${generated.absolutePath}", generated.isFile)
+    }
+
+    @Test
+    fun invalidSourceFailsAndReportsCompilerDiagnostic() {
+        val workDir = newWorkDir("invalid")
+        val source = File(workDir, "Broken.kt").apply {
+            writeText("package spike\nfun answer(: Int = 42\n")
+        }
+        val output = File(workDir, "out").apply { mkdirs() }
+        val messages = RecordingMessageCollector()
+        val exit = compile(source, output, messages)
+
+        assertFalse("Invalid source must not report success", exit == ExitCode.OK)
+        assertTrue(
+            "Expected a compiler error with source location; got:\n${messages.dump()}",
+            messages.entries.any { it.contains("ERROR") && it.contains("Broken.kt") }
+        )
+        assertFalse("Invalid source must not emit the entry class", File(output, "spike/BrokenKt.class").exists())
+    }
+
+    private fun newWorkDir(name: String): File {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        return File(context.cacheDir, "kotlinc-art-spike/$name").apply {
+            deleteRecursively()
+            mkdirs()
+        }
+    }
+
+    private fun compile(source: File, output: File, messages: RecordingMessageCollector): ExitCode {
         val args = K2JVMCompilerArguments().apply {
             freeArgs = listOf(source.absolutePath)
             destination = output.absolutePath
@@ -46,26 +78,21 @@ class KotlinCompilerArtSpikeTest {
             noReflect = true
             jvmTarget = "1.8"
         }
-
-        val exit = try {
+        return try {
             K2JVMCompiler().exec(messages, Services.EMPTY, args)
         } catch (throwable: Throwable) {
             Log.e(TAG, "Kotlin compiler threw on ART; this is the spike result", throwable)
             fail("Compiler threw on ART: ${throwable.javaClass.name}: ${throwable.message}\n${throwable.stackTraceToString()}")
-            return
+            throw AssertionError("unreachable")
         }
-
-        val generated = File(output, "spike/SmokeKt.class")
-        assertTrue("Compiler exit=$exit; messages:\n${messages.dump()}", exit == ExitCode.OK)
-        assertTrue("Expected generated class at ${generated.absolutePath}", generated.isFile)
     }
 
     private class RecordingMessageCollector : MessageCollector {
-        private val lines = mutableListOf<String>()
+        val entries = mutableListOf<String>()
         private var sawError = false
 
         override fun clear() {
-            lines.clear()
+            entries.clear()
             sawError = false
         }
 
@@ -76,11 +103,12 @@ class KotlinCompilerArtSpikeTest {
             message: String,
             location: CompilerMessageSourceLocation?
         ) {
-            lines += "$severity: $message"
+            val source = location?.let { "${it.path}:${it.line}:${it.column}: " }.orEmpty()
+            entries += "$severity: $source$message"
             if (severity == CompilerMessageSeverity.ERROR) sawError = true
         }
 
-        fun dump(): String = lines.joinToString("\n")
+        fun dump(): String = entries.joinToString("\n")
     }
 
     private companion object {
