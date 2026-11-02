@@ -12,9 +12,9 @@ permissions:
 
 jobs:
   build-arm32:
-    name: Build debug APK and compiler spike test on Android ART
+    name: Build ARM32 debug APK and compiler spike test
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,11 +52,11 @@ jobs:
           path: app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
           if-no-files-found: error
 
-      - name: Run compiler spike tests on Android ART (x86_64 emulator)
+      - name: Run compiler spike tests on Android ART (ARM32 emulator)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
-          arch: x86_64
+          arch: arm
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
@@ -65,7 +65,7 @@ jobs:
             adb install app/build/outputs/apk/debug/app-debug.apk
             adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             set +e
-            timeout 180s adb shell am instrument -w -r \
+            timeout 240s adb shell am instrument -w -r \
               com.techwithkaushik.composeliveeditor.test/androidx.test.runner.AndroidJUnitRunner \
               > instrumentation.log 2>&1
             test_status=$?
