@@ -31,7 +31,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private const val STARTER_SOURCE = """@Composable
+private const val STARTER_SOURCE = """import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+
+@Composable
 fun MyScreen() {
     Column {
         Text("Hello, Compose!")
