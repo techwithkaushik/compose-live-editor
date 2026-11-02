@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build-arm32:
-    name: Build ARM32 debug APK
+    name: Build ARM32 debug APK and compiler spike test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,11 +32,21 @@ jobs:
           gradle-version: "8.13"
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
-      - name: Verify APK exists
-        run: test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Build compiler ART spike instrumentation APK
+        run: gradle --no-daemon :app:assembleDebugAndroidTest
+      - name: Verify APKs exist
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: compose-live-editor-arm32-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - name: Upload compiler ART spike test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-live-editor-compiler-art-spike-test
+          path: app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
           if-no-files-found: error
