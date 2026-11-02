@@ -8,7 +8,6 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "com.techwithkaushik.composeliveeditor"
-        compileSdk = 36
         // The embedded compiler's MethodHandle APIs require Android O (API 26) for D8.
         // This is an explicit compatibility floor for the current compiler spike.
         minSdk = 26
