@@ -14,6 +14,7 @@ jobs:
   build-arm32:
     name: Build ARM32 debug APK and compiler spike test
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,8 +59,20 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
           script: |
+            set -eu
             adb install app/build/outputs/apk/debug/app-debug.apk
             adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell am instrument -w -r \
-              com.techwithkaushik.composeliveeditor.test/androidx.test.runner.AndroidJUnitRunner
+            set +e
+            timeout 180s adb shell am instrument -w -r \
+              com.techwithkaushik.composeliveeditor.test/androidx.test.runner.AndroidJUnitRunner \
+              > instrumentation.log 2>&1
+            test_status=$?
+            set -e
+            cat instrumentation.log
+            if [ "$test_status" -ne 0 ]; then
+              echo "Instrumentation failed or timed out (exit $test_status). Recent Android logs:"
+              adb logcat -d -t 1500
+              exit "$test_status"
+            fi
