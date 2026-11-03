@@ -12,6 +12,14 @@ The Run Preview action must execute the user's edited source locally on the Andr
 
 It does not prove runtime compilation or user-code execution.
 
+## Latest ART experiment (2026-11-02)
+
+The compiler class can be loaded and constructed in the instrumentation APK, but invoking it fails before compilation starts:
+
+`NoClassDefFoundError: java.lang.management.ManagementFactory`.
+
+This class belongs to the Java SE management APIs and is not available on Android's boot class path. This is an environment/API compatibility blocker, not a Kotlin syntax diagnostic. The smoke tests explicitly skip compile assertions when this API is missing; skipped tests are not evidence that compilation works. CI should report the build, class-loading probe, and instrumentation status, while the actual compile gate remains blocked until an Android-compatible compiler adapter or alternate execution strategy is implemented. Do not add a fake `java.lang.management` class under `java.*` or mark the compiler as working based on class construction alone.
+
 ## Technical options to test
 
 ### Option 1: Kotlin compile → Compose transform → DEX → load
@@ -40,6 +48,12 @@ Use the current starter source and prove these in order:
 5. Repeat on a 32-bit ARM device/emulator and record APK size, peak memory, and compile latency.
 
 Only after this gate should the compiler/interpreter dependencies become part of the app.
+
+## Immediate next steps
+
+1. Inspect the exact Kotlin compiler call path that touches `ManagementFactory` and determine whether the dependency can be isolated behind an Android-safe adapter without patching platform packages.
+2. If it cannot, prototype an Android-compatible compilation/interpretation path in a separate module and keep it out of the production APK until the proof-of-concept gate passes.
+3. Keep unsupported runtime, compiler failure, and successful compilation as three separate outcomes in instrumentation reports.
 
 ## References
 
