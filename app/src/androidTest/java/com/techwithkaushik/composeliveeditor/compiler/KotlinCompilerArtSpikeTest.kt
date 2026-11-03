@@ -64,12 +64,11 @@ class KotlinCompilerArtSpikeTest {
         assertFalse("Invalid source must not emit the entry class", File(output, "spike/BrokenKt.class").exists())
     }
 
-
     @Test
     fun compilerRuntimeCapabilityIsReportedExplicitly() {
         val workDir = newWorkDir("capability")
         val source = File(workDir, "Capability.kt").apply {
-            writeText("package spike\\nfun capability(): Int = 7\\n")
+            writeText("package spike\nfun capability(): Int = 7\n")
         }
         val output = File(workDir, "out").apply { mkdirs() }
         val messages = RecordingMessageCollector()
@@ -96,7 +95,7 @@ class KotlinCompilerArtSpikeTest {
                 Log.i(TAG, "COMPILE_SUCCESS: compiler emitted CapabilityKt.class")
                 System.out.println("COMPILER_CAPABILITY=COMPILE_SUCCESS")
             } else {
-                val detail = "Compiler exit=$exit; diagnostics:\\n${messages.dump()}"
+                val detail = "Compiler exit=$exit; diagnostics:\n${messages.dump()}"
                 Log.e(TAG, "COMPILER_FAILURE: $detail")
                 fail("COMPILER_FAILURE: $detail")
             }
@@ -110,7 +109,7 @@ class KotlinCompilerArtSpikeTest {
             } else {
                 Log.e(TAG, "COMPILER_FAILURE: unexpected runtime exception", throwable)
                 fail(
-                    "COMPILER_FAILURE: ${throwable.javaClass.name}: ${throwable.message}\\n" +
+                    "COMPILER_FAILURE: ${throwable.javaClass.name}: ${throwable.message}\n" +
                         throwable.stackTraceToString()
                 )
             }
