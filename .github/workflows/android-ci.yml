@@ -79,13 +79,10 @@ jobs:
             adb shell getprop sys.boot_completed | grep -q 1
             adb install app/build/outputs/apk/debug/app-debug.apk
             adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            set +e
-            timeout 240s adb shell am instrument -w -r com.techwithkaushik.composeliveeditor.test/androidx.test.runner.AndroidJUnitRunner > instrumentation.log 2>&1
-            test_status=$?
-            set -e
-            cat instrumentation.log
-            if [ "$test_status" -ne 0 ]; then
-              echo "Instrumentation failed or timed out (exit $test_status). Recent Android logs:"
+            if ! timeout 240s adb shell am instrument -w -r com.techwithkaushik.composeliveeditor.test/androidx.test.runner.AndroidJUnitRunner > instrumentation.log 2>&1; then
+              cat instrumentation.log
+              echo "Instrumentation failed or timed out. Recent Android logs:"
               adb logcat -d -t 1500
-              exit "$test_status"
+              exit 1
             fi
+            cat instrumentation.log
