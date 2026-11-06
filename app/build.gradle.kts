@@ -12,8 +12,51 @@ android {
         // This is an explicit compatibility floor for the current compiler spike.
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // Keep APK version identity tied to the source branch and exact commit.
+        val gitBranch = providers.exec {
+            commandLine("git", "branch", "--show-current")
+            isIgnoreExitValue = false
+        }.standardOutput.asText.get().trim()
+            .ifBlank {
+                System.getenv("GITHUB_HEAD_REF")
+                    ?: System.getenv("GITHUB_REF_NAME")
+                    ?: error("Unable to determine the current Git branch")
+            }
+
+        val distroName = gitBranch
+            .substringAfter('/', gitBranch)
+            .substringBefore("-runtime-ssh")
+            .substringBefore('-')
+            .ifBlank { error("Unable to derive distro name from Git branch: '$gitBranch'") }
+
+        val shortCommitSha = providers.exec {
+            commandLine("git", "rev-parse", "--short=7", "HEAD")
+            isIgnoreExitValue = false
+        }.standardOutput.asText.get().trim()
+            .also { if (it.isBlank()) error("Unable to determine the current Git commit SHA") }
+
+        val isShallowCheckout = providers.exec {
+            commandLine("git", "rev-parse", "--is-shallow-repository")
+            isIgnoreExitValue = false
+        }.standardOutput.asText.get().trim().toBoolean()
+
+        check(!isShallowCheckout) {
+            "Full Git history is required to calculate versionCode. " +
+                "Configure actions/checkout with fetch-depth: 0."
+        }
+
+        val relatedBranchCommitCount = providers.exec {
+            commandLine("git", "rev-list", "--count", "HEAD")
+            isIgnoreExitValue = false
+        }.standardOutput.asText.get().trim().toIntOrNull()
+            ?.takeIf { it > 0 }
+            ?: error("Unable to determine a positive branch commit count")
+
+        versionCode = relatedBranchCommitCount
+        versionName = "$distroName-$shortCommitSha"
+        logger.lifecycle(
+            "App version: versionName=$versionName, versionCode=$versionCode, branch=$gitBranch"
+        )
     }
     buildFeatures {
         compose = true
