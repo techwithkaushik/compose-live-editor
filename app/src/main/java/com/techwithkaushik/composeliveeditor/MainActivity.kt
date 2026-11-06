@@ -47,7 +47,7 @@ import androidx.compose.material3.Text
 fun MyScreen() {
     var count by remember { mutableIntStateOf(0) }
     Column {
-        Text("Count: \${'$'}count")
+        Text("Count: ${'$'}count")
         Button(onClick = { count++ }) { Text("Increment") }
         Button(onClick = { count-- }) { Text("Decrement") }
     }
@@ -152,14 +152,14 @@ private fun PreviewScreen(result: PreviewParseResult?, modifier: Modifier = Modi
                 val states = remember(result.states) {
                     result.states.associate { it.name to mutableIntStateOf(it.initialValue) }
                 }
-                Text("Rendered: \${result.entryPoint}()", style = MaterialTheme.typography.titleMedium)
+                Text("Rendered: ${result.entryPoint}()", style = MaterialTheme.typography.titleMedium)
                 HorizontalDivider()
                 ComposePreviewContent(result.content, states)
             }
             is PreviewParseResult.Failure -> {
                 Text("Preview error", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error)
                 Text(
-                    "Line \${result.diagnostic.line}, column \${result.diagnostic.column}: \${result.diagnostic.message}",
+                    "Line ${result.diagnostic.line}, column ${result.diagnostic.column}: ${result.diagnostic.message}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                 )

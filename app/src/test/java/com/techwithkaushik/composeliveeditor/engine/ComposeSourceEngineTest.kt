@@ -22,7 +22,7 @@ class ComposeSourceEngineTest {
             """@Composable fun Counter() {
                 var count by remember { mutableIntStateOf(0) }
                 Column {
-                    Text("Count: \${'$'}count")
+                    Text("Count: ${'$'}count")
                     Button(onClick = { count++; count += 2 }) { Text("Add") }
                     Button(onClick = { count--; count -= 1 }) { Text("Subtract") }
                     Button(onClick = { count = 10 }) { Text("Reset") }
@@ -48,7 +48,7 @@ class ComposeSourceEngineTest {
     @Test
     fun acceptsMutableStateOfInteger() {
         val result = ComposeSourceEngine.parse(
-            """@Composable fun Screen() { var value by remember { mutableStateOf(4) }; Column { Text("\${'$'}value") } }""",
+            """@Composable fun Screen() { var value by remember { mutableStateOf(4) }; Column { Text("${'$'}value") } }""",
         )
         assertTrue(result is PreviewParseResult.Success)
         assertEquals(4, (result as PreviewParseResult.Success).states.single().initialValue)
@@ -57,7 +57,7 @@ class ComposeSourceEngineTest {
     @Test
     fun rejectsUnknownStateReferences() {
         val result = ComposeSourceEngine.parse(
-            """@Composable fun Screen() { Column { Text("\${'$'}missing") } }""",
+            """@Composable fun Screen() { Column { Text("${'$'}missing") } }""",
         )
         assertTrue(result is PreviewParseResult.Failure)
     }

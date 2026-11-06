@@ -40,7 +40,7 @@ object ComposeSourceEngine {
         } catch (failure: ParseFailure) {
             PreviewParseResult.Failure(failure.diagnostic)
         } catch (failure: Exception) {
-            PreviewParseResult.Failure(SourceDiagnostic("Unable to parse source: \${failure.message ?: failure.javaClass.simpleName}", 1, 1))
+            PreviewParseResult.Failure(SourceDiagnostic("Unable to parse source: ${failure.message ?: failure.javaClass.simpleName}", 1, 1))
         }
     }
 
@@ -189,7 +189,7 @@ object ComposeSourceEngine {
             val declaration = advance()
             if (declaration.text != "var") fail("State variables must use 'var'", declaration)
             val name = identifier("Expected state variable name")
-            if (states.containsKey(name.text)) fail("Duplicate state variable '\${name.text}'", name)
+            if (states.containsKey(name.text)) fail("Duplicate state variable '${name.text}'", name)
             if (states.size >= MAX_STATES) fail("Preview supports at most $MAX_STATES state variables", name)
             expectIdentifier("by")
             expectIdentifier("remember")
@@ -251,13 +251,13 @@ object ComposeSourceEngine {
                     expect("}"); expect(")")
                     PreviewNode.Button(children(depth), actions)
                 }
-                else -> fail("Unsupported Compose call '\${name.text}'. Supported: Column, Row, Box, Text, Button", name)
+                else -> fail("Unsupported Compose call '${name.text}'. Supported: Column, Row, Box, Text, Button", name)
             }
         }
 
         private fun action(): PreviewAction {
             val state = identifier("Expected a state action such as count++")
-            if (!states.containsKey(state.text)) fail("Button action references unknown state variable '\${state.text}'", state)
+            if (!states.containsKey(state.text)) fail("Button action references unknown state variable '${state.text}'", state)
             return when {
                 match("+") -> if (match("+")) PreviewAction.Increment(state.text) else {
                     expect("=")
