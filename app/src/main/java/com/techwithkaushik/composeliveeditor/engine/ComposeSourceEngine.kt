@@ -12,9 +12,9 @@ sealed interface PreviewNode {
     data class Surface(val children: List<PreviewNode>) : PreviewNode
     data class Spacer(val heightDp: Int) : PreviewNode
     data object Divider : PreviewNode
+}
 
 enum class ButtonStyle { FILLED, OUTLINED, TEXT }
-}
 sealed interface PreviewAction {
     val stateName: String
     data class Increment(override val stateName: String) : PreviewAction
@@ -258,7 +258,7 @@ object ComposeSourceEngine {
                     val argsStart = current()
                     balanced("(", ")")
                     val argumentText = tokens.subList(tokens.indexOf(argsStart), index).joinToString("") { it.text }
-                    val height = Regex("""height\\s*\\(\\s*(\\d+)\\s*\\.dp\\s*\\)""").find(argumentText)?.groupValues?.get(1)?.toIntOrNull() ?: 8
+                    val height = Regex("""height\s*\(\s*(\d+)\s*\.dp\s*\)""").find(argumentText)?.groupValues?.get(1)?.toIntOrNull() ?: 8
                     if (height !in 0..512) fail("Spacer height must be between 0 and 512 dp", argsStart)
                     PreviewNode.Spacer(height)
                 }
