@@ -74,18 +74,18 @@ object ComposeEditorLanguageTools {
     fun completions(prefix: String): List<CompletionItem> {
         val query = prefix.trim()
         return listOf(
-            CompletionItem("Column", "Column {\\n    \\n}", "Vertical layout"),
-            CompletionItem("Row", "Row {\\n    \\n}", "Horizontal layout"),
-            CompletionItem("Box", "Box {\\n    \\n}", "Stack layout"),
-            CompletionItem("Text", "Text(\\\"Hello\\\")", "Display text"),
-            CompletionItem("Button", "Button(onClick = { }) {\\n    Text(\\\"Click\\\")\\n}", "Clickable action"),
-            CompletionItem("OutlinedButton", "OutlinedButton(onClick = { }) {\\n    Text(\\\"Action\\\")\\n}", "Outlined action"),
-            CompletionItem("TextButton", "TextButton(onClick = { }) {\\n    Text(\\\"Action\\\")\\n}", "Text action"),
-            CompletionItem("Card", "Card {\\n    Text(\\\"Card content\\\")\\n}", "Material card"),
-            CompletionItem("Surface", "Surface {\\n    Text(\\\"Content\\\")\\n}", "Material surface"),
+            CompletionItem("Column", "Column {\n    \n}", "Vertical layout"),
+            CompletionItem("Row", "Row {\n    \n}", "Horizontal layout"),
+            CompletionItem("Box", "Box {\n    \n}", "Stack layout"),
+            CompletionItem("Text", "Text(\"Hello\")", "Display text"),
+            CompletionItem("Button", "Button(onClick = { }) {\n    Text(\"Click\")\n}", "Clickable action"),
+            CompletionItem("OutlinedButton", "OutlinedButton(onClick = { }) {\n    Text(\"Action\")\n}", "Outlined action"),
+            CompletionItem("TextButton", "TextButton(onClick = { }) {\n    Text(\"Action\")\n}", "Text action"),
+            CompletionItem("Card", "Card {\n    Text(\"Card content\")\n}", "Material card"),
+            CompletionItem("Surface", "Surface {\n    Text(\"Content\")\n}", "Material surface"),
             CompletionItem("Spacer", "Spacer(modifier = Modifier.height(8.dp))", "Layout spacing"),
             CompletionItem("Divider", "HorizontalDivider()", "Visual separator"),
-            CompletionItem("@Composable", "@Composable\\nfun Screen() {\\n    Column {\\n        Text(\\\"Hello\\\")\\n    }\\n}", "Composable entry point"),
+            CompletionItem("@Composable", "@Composable\nfun Screen() {\n    Column {\n        Text(\"Hello\")\n    }\n}", "Composable entry point"),
         ).filter { query.isEmpty() || it.label.startsWith(query, ignoreCase = true) || it.detail.contains(query, ignoreCase = true) }
             .take(8)
     }
