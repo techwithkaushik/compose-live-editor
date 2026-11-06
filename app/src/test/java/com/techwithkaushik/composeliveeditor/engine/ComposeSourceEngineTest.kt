@@ -56,10 +56,7 @@ class ComposeSourceEngineTest {
 
     @Test
     fun supportsBracedStateInterpolation() {
-        val result = ComposeSourceEngine.parse(
-            """@Composable fun Screen() {
-                var count by remember { mutableIntStateOf(3) }
-                Column { Text("Count: ${'
+        val source = "@Composable fun Screen() { var count by remember { mutableIntStateOf(3) }; Column { Text(\"Count: " + '
         val result = ComposeSourceEngine.parse(
             """@Composable fun Screen() { Column { Text("${'$'}missing") } }""",
         )
@@ -114,12 +111,11 @@ class ComposeSourceEngineTest {
         assertTrue(ComposeSourceEngine.parse("x".repeat(65 * 1024)) is PreviewParseResult.Failure)
     }
 }
-}{count}") }
-            }""",
-        )
+ + "{count}\") } }"
+        val result = ComposeSourceEngine.parse(source)
         assertTrue("Expected success, got $result", result is PreviewParseResult.Success)
         val root = (result as PreviewParseResult.Success).content as PreviewNode.Column
-        assertEquals("Count: ${'
+        assertEquals("Count: " + '
         val result = ComposeSourceEngine.parse(
             """@Composable fun Screen() { Column { Text("${'$'}missing") } }""",
         )
@@ -174,9 +170,8 @@ class ComposeSourceEngineTest {
         assertTrue(ComposeSourceEngine.parse("x".repeat(65 * 1024)) is PreviewParseResult.Failure)
     }
 }
-}{count}", (root.children.single() as PreviewNode.Text).value)
+ + "{count}", (root.children.single() as PreviewNode.Text).value)
     }
-
     @Test
     fun rejectsUnknownStateReferences() {
         val result = ComposeSourceEngine.parse(
