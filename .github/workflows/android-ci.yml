@@ -12,9 +12,9 @@ permissions:
 
 jobs:
   build-and-test:
-    name: Build APKs and run compiler tests on Android ART
+    name: Test engine and build single APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,49 +35,25 @@ jobs:
         with:
           gradle-version: "8.13"
 
-      - name: Build debug APK
+      - name: Run engine unit tests
+        run: gradle --no-daemon :app:testDebugUnitTest
+
+      - name: Build the only APK
         run: gradle --no-daemon :app:assembleDebug
 
-      - name: Build compiler ART spike instrumentation APK
-        run: gradle --no-daemon :app:assembleDebugAndroidTest
-
-      - name: Verify APKs and report native ABIs
+      - name: Verify single APK output
         run: |
           set -eu
           test -s app/build/outputs/apk/debug/app-debug.apk
-          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-          echo "Debug APK native libraries:"
+          count=$(find app/build/outputs/apk -type f -name '*.apk' | wc -l)
+          test "$count" -eq 1
+          echo "Verified exactly one APK:"
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
           unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E 'lib/[^/]+/.*\.so$' || true
-          echo "Instrumentation APK native libraries:"
-          unzip -l app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk | grep -E 'lib/[^/]+/.*\.so$' || true
 
-      - name: Upload debug APK
+      - name: Upload single debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: compose-live-editor-debug
+          name: compose-live-editor
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
-      - name: Upload compiler ART spike test APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: compose-live-editor-compiler-art-spike-test
-          path: app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-          if-no-files-found: error
-
-      - name: Run compiler spike tests on Android ART (x86_64 emulator)
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          arch: x86_64
-          profile: pixel_2
-          disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
-          script: |
-            set -eu
-            adb wait-for-device
-            adb shell getprop sys.boot_completed | grep -q 1
-            adb install app/build/outputs/apk/debug/app-debug.apk
-            adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            timeout 240s adb shell am instrument -w -r com.techwithkaushik.composeliveeditor.test/androidx.test.runner.AndroidJUnitRunner > instrumentation.log 2>&1 || { status=$?; cat instrumentation.log; echo "Instrumentation failed or timed out (exit $status). Recent Android logs:"; adb logcat -d -t 1500; exit "$status"; }
-            cat instrumentation.log

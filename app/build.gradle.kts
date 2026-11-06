@@ -14,7 +14,6 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures {
         compose = true
@@ -37,9 +36,5 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
-    // Keep the compiler in the instrumentation APK while investigating ART compatibility.
-    // Do not inflate the production APK until this experiment succeeds on ARM32.
-    androidTestImplementation(libs.kotlin.compiler.embeddable)
-    androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.androidx.test.ext.junit)
+    testImplementation(libs.junit)
 }

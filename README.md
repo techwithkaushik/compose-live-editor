@@ -16,7 +16,7 @@ Supported first milestone:
 
 This is **not arbitrary Kotlin execution**. Callback bodies, variables, expressions, modifiers, themes, and other Kotlin syntax are not interpreted yet. Unsupported calls produce source-located errors; the engine never substitutes a hard-coded preview. Source is parsed locally; there is no Termux or remote compilation service.
 
-The earlier stock Kotlin/JVM compiler experiment remains separate: Android ART lacks `java.lang.management.ManagementFactory`, so that experiment's compile tests are skipped on stock ART. The interpreter does not depend on that compiler.
+The old stock Kotlin/JVM compiler experiment is not part of the app build. Engine parser tests run as local JVM unit tests, and CI publishes exactly one installable debug APK.
 
 ## Build
 
