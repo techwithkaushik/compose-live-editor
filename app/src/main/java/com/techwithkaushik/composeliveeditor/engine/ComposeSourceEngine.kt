@@ -163,7 +163,7 @@ object ComposeSourceEngine {
                     var root: PreviewNode? = null
                     while (!check("}") && !end()) {
                         if (match(";")) continue
-                        if (identifierIs("var") || identifierIs("val")) {
+                        if (checkIdentifier("var") || checkIdentifier("val")) {
                             if (root != null) fail("State declarations must appear before the root layout", current())
                             stateDeclaration()
                         } else {
@@ -314,6 +314,7 @@ object ComposeSourceEngine {
         }
         private fun expect(value: String) { if (!match(value)) fail("Expected '$value'", current()) }
         private fun match(value: String): Boolean { if (!check(value)) return false; advance(); return true }
+        private fun checkIdentifier(value: String): Boolean = current().kind == Kind.IDENTIFIER && current().text == value
         private fun identifierIs(value: String): Boolean {
             if (current().kind != Kind.IDENTIFIER || current().text != value) return false
             advance()
