@@ -5,6 +5,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +39,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -126,8 +139,21 @@ private fun ComposeEditorApp() {
             }
         },
     ) { padding ->
-        if (showPreview) PreviewScreen(previewResult, Modifier.fillMaxSize().padding(padding))
-        else SourceEditor(source, { source = it }, Modifier.fillMaxSize().padding(padding))
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            SourceEditor(
+                source = source,
+                onSourceChange = {
+                    source = it
+                    if (showPreview) previewResult = ComposeSourceEngine.parse(it)
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (showPreview) FloatingPreviewWindow(
+                result = previewResult,
+                onClose = { showPreview = false },
+                onRefresh = { previewResult = ComposeSourceEngine.parse(source) },
+            )
+        }
     }
 }
 
@@ -165,91 +191,90 @@ private fun SourceEditor(source: String, onSourceChange: (String) -> Unit, modif
 }
 
 @Composable
-private fun PreviewScreen(result: PreviewParseResult?, modifier: Modifier = Modifier) {
-    Column(
-        modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        when (result) {
-            is PreviewParseResult.Success -> {
-                val states = remember(result.states) {
-                    result.states.associate { it.name to mutableIntStateOf(it.initialValue) }
-                }
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Unit, onRefresh: () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val availableWidth = maxWidth.value
+        val availableHeight = maxHeight.value
+        var panelWidth by remember { mutableFloatStateOf(minOf(availableWidth * 0.84f, 360f)) }
+        var panelHeight by remember { mutableFloatStateOf(minOf(availableHeight * 0.52f, 420f)) }
+        var panelX by remember { mutableFloatStateOf(availableWidth - panelWidth - 12f) }
+        var panelY by remember { mutableFloatStateOf(12f) }
+        val minWidth = minOf(220f, availableWidth)
+        val minHeight = minOf(180f, availableHeight)
+        panelWidth = panelWidth.coerceIn(minWidth, availableWidth)
+        panelHeight = panelHeight.coerceIn(minHeight, availableHeight)
+        panelX = panelX.coerceIn(0f, (availableWidth - panelWidth).coerceAtLeast(0f))
+        panelY = panelY.coerceIn(0f, (availableHeight - panelHeight).coerceAtLeast(0f))
+        Card(
+            modifier = Modifier.offset { IntOffset(panelX.dp.roundToPx(), panelY.dp.roundToPx()) }
+                .width(panelWidth.dp).height(panelHeight.dp).zIndex(1f),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        Modifier.weight(1f).pointerInput(availableWidth, availableHeight, panelWidth, panelHeight) {
+                            detectDragGestures { change, drag ->
+                                change.consume()
+                                panelX = (panelX + drag.x / density).coerceIn(0f, (availableWidth - panelWidth).coerceAtLeast(0f))
+                                panelY = (panelY + drag.y / density).coerceIn(0f, (availableHeight - panelHeight).coerceAtLeast(0f))
+                            }
+                        },
+                        verticalArrangement = Arrangement.spacedBy(1.dp),
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(
-                                "PREVIEW CANVAS",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(
-                                "${states.size} states",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        Text(
+                            (result as? PreviewParseResult.Success)?.entryPoint?.let { it + "()" } ?: "Live Preview",
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                        )
+                        Text("LIVE · DRAG TO MOVE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    TextButton(onClick = onRefresh) { Text("↻") }
+                    TextButton(onClick = onClose) { Text("×") }
+                }
+                HorizontalDivider()
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    when (result) {
+                        is PreviewParseResult.Success -> {
+                            val states = remember(result.states) {
+                                result.states.associate { it.name to mutableIntStateOf(it.initialValue) }
+                            }
+                            Column(
+                                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Text("PREVIEW CANVAS · ${states.size} states", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                HorizontalDivider()
+                                ComposePreviewContent(result.content, states)
+                            }
                         }
-                        HorizontalDivider()
-                        ComposePreviewContent(result.content, states)
+                        is PreviewParseResult.Failure -> Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Preview error", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.titleMedium)
+                            Text("Line ${result.diagnostic.line}, column ${result.diagnostic.column}", style = MaterialTheme.typography.labelSmall)
+                            Text(result.diagnostic.message, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        null -> Text("No preview result", Modifier.padding(16.dp))
                     }
                 }
-                Text(
-                    "Interactive preview · changes update state immediately",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                )
+                Box(
+                    Modifier.align(Alignment.End).size(32.dp).pointerInput(availableWidth, availableHeight) {
+                        detectDragGestures { change, drag ->
+                            change.consume()
+                            panelWidth = (panelWidth + drag.x / density).coerceIn(minWidth, availableWidth)
+                            panelHeight = (panelHeight + drag.y / density).coerceIn(minHeight, availableHeight)
+                            panelX = panelX.coerceIn(0f, (availableWidth - panelWidth).coerceAtLeast(0f))
+                            panelY = panelY.coerceIn(0f, (availableHeight - panelHeight).coerceAtLeast(0f))
+                        }
+                    },
+                    contentAlignment = Alignment.Center,
+                ) { Text("◢", color = MaterialTheme.colorScheme.primary) }
             }
-            is PreviewParseResult.Failure -> {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                    ),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            "Preview error",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                        Text(
-                            "Line ${result.diagnostic.line}, column ${result.diagnostic.column}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                        Text(
-                            result.diagnostic.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                    }
-                }
-            }
-            null -> Text(
-                "No preview result. Return to the editor and run Preview.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
         }
     }
 }
