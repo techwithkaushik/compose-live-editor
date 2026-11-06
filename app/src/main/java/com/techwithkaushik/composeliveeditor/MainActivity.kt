@@ -128,7 +128,6 @@ private fun ComposeEditorApp() {
             if (showPreview) FloatingPreviewWindow(
                 result = previewResult,
                 onClose = { showPreview = false },
-                onRefresh = { previewResult = ComposeSourceEngine.parse(source) },
             )
         }
     }
@@ -168,7 +167,7 @@ private fun SourceEditor(source: String, onSourceChange: (String) -> Unit, modif
 }
 
 @Composable
-private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Unit, onRefresh: () -> Unit) {
+private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val availableWidth = maxWidth.value
         val availableHeight = maxHeight.value
