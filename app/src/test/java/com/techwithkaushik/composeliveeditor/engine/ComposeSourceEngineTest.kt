@@ -83,7 +83,44 @@ class ComposeSourceEngineTest {
 
     @Test
     fun reportsUnsupportedCallsWithSourceLocation() {
-        val result = ComposeSourceEngine.parse("@Composable\nfun Screen() {\n  Column {\n    Image()\n  }\n}")
+        val result = ComposeSourceEngine.parse("@Composable\nfun Screen() {\n  Column {\n    Image()\n  }
+    @Test
+    fun parsesMaterialContainersAndButtonVariants() {
+        val result = ComposeSourceEngine.parse(
+            """@Composable fun Screen() {
+                Card {
+                    Surface { Text("Content") }
+                    OutlinedButton(onClick = { }) { Text("Outlined") }
+                    TextButton(onClick = { }) { Text("Text action") }
+                }
+            }""",
+        )
+        assertTrue("Expected success, got $result", result is PreviewParseResult.Success)
+        val card = (result as PreviewParseResult.Success).content as PreviewNode.Card
+        assertTrue(card.children[0] is PreviewNode.Surface)
+        assertEquals(ButtonStyle.OUTLINED, (card.children[1] as PreviewNode.Button).style)
+        assertEquals(ButtonStyle.TEXT, (card.children[2] as PreviewNode.Button).style)
+    }
+
+    @Test
+    fun parsesSpacerAndDivider() {
+        val result = ComposeSourceEngine.parse(
+            """@Composable fun Screen() { Column { Spacer(modifier = Modifier.height(24.dp)); HorizontalDivider() } }""",
+        )
+        assertTrue("Expected success, got $result", result is PreviewParseResult.Success)
+        val children = ((result as PreviewParseResult.Success).content as PreviewNode.Column).children
+        assertEquals(24, (children[0] as PreviewNode.Spacer).heightDp)
+        assertTrue(children[1] is PreviewNode.Divider)
+    }
+
+    @Test
+    fun rejectsOutOfRangeSpacerHeight() {
+        val result = ComposeSourceEngine.parse(
+            """@Composable fun Screen() { Column { Spacer(modifier = Modifier.height(999.dp)) } }""",
+        )
+        assertTrue(result is PreviewParseResult.Failure)
+    }
+\n}")
         assertTrue(result is PreviewParseResult.Failure)
         val diagnostic = (result as PreviewParseResult.Failure).diagnostic
         assertEquals(4, diagnostic.line)
