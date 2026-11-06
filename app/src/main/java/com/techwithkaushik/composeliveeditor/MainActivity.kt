@@ -178,7 +178,7 @@ private fun PreviewScreen(result: PreviewParseResult?, modifier: Modifier = Modi
                     result.states.associate { it.name to mutableIntStateOf(it.initialValue) }
                 }
                 Card(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface,
                     ),
