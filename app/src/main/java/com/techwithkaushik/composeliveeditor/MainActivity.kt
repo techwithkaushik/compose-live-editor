@@ -92,39 +92,16 @@ private fun ComposeEditorApp() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    if (showPreview) {
-                        val entryPoint = (previewResult as? PreviewParseResult.Success)?.entryPoint
-                        Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                            Text(
-                                entryPoint?.let { "$it()" } ?: "Live Preview",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                "LIVE PREVIEW",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    } else {
-                        Text("Compose Editor")
-                    }
-                },
-                navigationIcon = {
-                    if (showPreview) TextButton(onClick = { showPreview = false }) { Text("‹ Editor") }
-                },
+                title = { Text("Compose Editor") },
+                navigationIcon = {},
                 actions = {
-                    if (!showPreview) {
-                        Button(
-                            onClick = {
-                                previewResult = ComposeSourceEngine.parse(source)
-                                showPreview = true
-                            },
-                            modifier = Modifier.padding(end = 8.dp),
-                        ) { Text("▶ Run Preview") }
-                    } else {
-                        TextButton(onClick = { previewResult = ComposeSourceEngine.parse(source) }) { Text("Refresh") }
-                    }
+                    Button(
+                        onClick = {
+                            previewResult = ComposeSourceEngine.parse(source)
+                            showPreview = !showPreview
+                        },
+                        modifier = Modifier.padding(end = 8.dp),
+                    ) { Text("Preview") }
                 },
             )
         },
@@ -132,8 +109,7 @@ private fun ComposeEditorApp() {
             Column {
                 HorizontalDivider()
                 Text(
-                    if (showPreview) "On-device Compose interpreter · interactive state preview"
-                    else "Kotlin · Compose · in-memory editor",
+                    "Kotlin · Compose · in-memory editor",
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 )
@@ -234,9 +210,7 @@ private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Un
                             style = MaterialTheme.typography.titleSmall,
                             maxLines = 1,
                         )
-                        Text("LIVE · DRAG TO MOVE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     }
-                    TextButton(onClick = onRefresh) { Text("↻") }
                     TextButton(onClick = onClose) { Text("×") }
                 }
                 HorizontalDivider()
@@ -250,8 +224,6 @@ private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Un
                                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                Text("PREVIEW CANVAS · ${states.size} states", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                                HorizontalDivider()
                                 ComposePreviewContent(result.content, states)
                             }
                         }
@@ -264,7 +236,7 @@ private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Un
                     }
                 }
                 Box(
-                    Modifier.align(Alignment.End).size(32.dp).pointerInput(availableWidth, availableHeight) {
+                    Modifier.align(Alignment.End).size(24.dp).pointerInput(availableWidth, availableHeight) {
                         detectDragGestures { change, drag ->
                             change.consume()
                             panelWidth = (panelWidth + drag.x / density).coerceIn(minWidth, availableWidth)
@@ -274,7 +246,7 @@ private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Un
                         }
                     },
                     contentAlignment = Alignment.Center,
-                ) { Text("◢", color = MaterialTheme.colorScheme.primary) }
+                ) { Text("◢", color = MaterialTheme.colorScheme.outline) }
             }
         }
     }
