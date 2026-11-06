@@ -218,11 +218,11 @@ object ComposeSourceEngine {
                     val value = current()
                     if (value.kind != Kind.STRING) fail("Text currently requires a string literal, e.g. Text(\"Hello\")", value)
                     advance()
-                    skipUntilCallEnd()
+                    expect(")")
                     PreviewNode.Text(value.value)
                 }
                 "Column", "Row", "Box" -> {
-                    if (match("(")) skipBalanced("(", ")")
+                    if (match("(")) expect(")")
                     val children = parseBlock(depth)
                     when (name.text) {
                         "Column" -> PreviewNode.Column(children)
@@ -231,24 +231,22 @@ object ComposeSourceEngine {
                     }
                 }
                 "Button" -> {
-                    if (match("(")) skipBalanced("(", ")")
+                    if (match("(")) {
+                        val callbackName = expectIdentifier("Button only supports an onClick callback")
+                        if (callbackName.text != "onClick") {
+                            fail("Button only supports onClick = { }", callbackName)
+                        }
+                        expect("=")
+                        expect("{")
+                        expect("}")
+                        expect(")")
+                    } else {
+                        fail("Button requires an explicit onClick = { } callback", name)
+                    }
                     PreviewNode.Button(parseBlock(depth))
                 }
                 else -> fail("Unsupported Compose call '${name.text}'. Supported: Column, Row, Box, Text, Button", name)
             }
-        }
-
-        private fun skipUntilCallEnd() {
-            var depth = 0
-            while (!atEnd()) {
-                if (check(")") && depth == 0) { advance(); return }
-                when (current().text) {
-                    "(", "{", "[" -> depth++
-                    ")", "}", "]" -> depth--
-                }
-                advance()
-            }
-            fail("Unterminated call argument list", current())
         }
 
         private fun skipBalanced(open: String, close: String) {
