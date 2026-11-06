@@ -45,10 +45,9 @@ fun ComposePreviewContent(node: PreviewNode, states: Map<String, MutableIntState
 }
 
 private fun renderText(template: String, states: Map<String, MutableIntState>): String =
-    TEMPLATE_REFERENCE.replace(template) { match ->
+    STATE_REFERENCE_PATTERN.replace(template) { match ->
         val name = match.groupValues[1].ifEmpty { match.groupValues[2] }
         states[name]?.intValue?.toString() ?: match.value
     }
 
-private val TEMPLATE_REFERENCE =
-    Regex("""\$([A-Za-z_][A-Za-z0-9_]*)|\$\{([A-Za-z_][A-Za-z0-9_]*)}""")
+

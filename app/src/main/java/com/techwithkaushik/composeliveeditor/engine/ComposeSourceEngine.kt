@@ -1,5 +1,7 @@
 package com.techwithkaushik.composeliveeditor.engine
 
+internal val STATE_REFERENCE_PATTERN = Regex("""\$([A-Za-z_][A-Za-z0-9_]*)|\$\{([A-Za-z_][A-Za-z0-9_]*)\}""")
+
 sealed interface PreviewNode {
     data class Column(val children: List<PreviewNode>) : PreviewNode
     data class Row(val children: List<PreviewNode>) : PreviewNode
@@ -29,7 +31,7 @@ object ComposeSourceEngine {
     private const val MAX_NODES = 512
     private const val MAX_STATES = 32
     private const val MAX_ACTIONS = 32
-    private val references = Regex("""\$([A-Za-z_][A-Za-z0-9_]*)|\$\{([A-Za-z_][A-Za-z0-9_]*)\}""")
+    private val references = STATE_REFERENCE_PATTERN
 
     fun parse(source: String): PreviewParseResult {
         if (source.length > MAX_SOURCE_LENGTH) {
