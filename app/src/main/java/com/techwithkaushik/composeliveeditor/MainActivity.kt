@@ -23,6 +23,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -36,17 +37,19 @@ import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
 import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
 
 private const val STARTER_SOURCE = """import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 
 @Composable
 fun MyScreen() {
+    var count by remember { mutableIntStateOf(0) }
     Column {
-        Text("Hello, Compose!")
-        Button(onClick = { }) {
-            Text("Click me")
-        }
+        Text("Count: \${'$'}count")
+        Button(onClick = { count++ }) { Text("Increment") }
+        Button(onClick = { count-- }) { Text("Decrement") }
     }
 }"""
 
@@ -55,9 +58,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    ComposeEditorApp()
-                }
+                Surface(Modifier.fillMaxSize()) { ComposeEditorApp() }
             }
         }
     }
@@ -69,7 +70,6 @@ private fun ComposeEditorApp() {
     var source by rememberSaveable { mutableStateOf(STARTER_SOURCE) }
     var showPreview by rememberSaveable { mutableStateOf(false) }
     var previewResult by remember { mutableStateOf<PreviewParseResult?>(null) }
-
     BackHandler(enabled = showPreview) { showPreview = false }
 
     Scaffold(
@@ -89,9 +89,7 @@ private fun ComposeEditorApp() {
                             modifier = Modifier.padding(end = 8.dp),
                         ) { Text("▶ Run Preview") }
                     } else {
-                        TextButton(onClick = { previewResult = ComposeSourceEngine.parse(source) }) {
-                            Text("Refresh")
-                        }
+                        TextButton(onClick = { previewResult = ComposeSourceEngine.parse(source) }) { Text("Refresh") }
                     }
                 },
             )
@@ -100,34 +98,22 @@ private fun ComposeEditorApp() {
             Column {
                 HorizontalDivider()
                 Text(
-                    text = if (showPreview) "On-device source interpreter · declarative subset" else "Kotlin · Compose · in-memory editor",
+                    if (showPreview) "On-device Compose interpreter · interactive state preview"
+                    else "Kotlin · Compose · in-memory editor",
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 )
             }
         },
-    ) { innerPadding ->
-        if (showPreview) {
-            PreviewScreen(
-                result = previewResult,
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
-            )
-        } else {
-            SourceEditor(
-                source = source,
-                onSourceChange = { source = it },
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
-            )
-        }
+    ) { padding ->
+        if (showPreview) PreviewScreen(previewResult, Modifier.fillMaxSize().padding(padding))
+        else SourceEditor(source, { source = it }, Modifier.fillMaxSize().padding(padding))
     }
 }
 
 @Composable
 private fun SourceEditor(source: String, onSourceChange: (String) -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Edit the Kotlin source, then tap Run Preview.", style = MaterialTheme.typography.bodySmall)
         BasicTextField(
             value = source,
@@ -139,11 +125,11 @@ private fun SourceEditor(source: String, onSourceChange: (String) -> Unit, modif
                 color = MaterialTheme.colorScheme.onSurface,
             ),
             decorationBox = { innerTextField ->
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Column(modifier = Modifier.padding(end = 12.dp)) {
+                Row(Modifier.fillMaxSize()) {
+                    Column(Modifier.padding(end = 12.dp)) {
                         (1..maxOf(1, source.count { it == '\n' } + 1)).forEach { line ->
                             Text(
-                                text = line.toString(),
+                                line.toString(),
                                 color = MaterialTheme.colorScheme.outline,
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 14.sp,
@@ -160,20 +146,20 @@ private fun SourceEditor(source: String, onSourceChange: (String) -> Unit, modif
 
 @Composable
 private fun PreviewScreen(result: PreviewParseResult?, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    Column(modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (result) {
             is PreviewParseResult.Success -> {
-                Text("Rendered: ${result.entryPoint}()", style = MaterialTheme.typography.titleMedium)
+                val states = remember(result.states) {
+                    result.states.associate { it.name to mutableIntStateOf(it.initialValue) }
+                }
+                Text("Rendered: \${result.entryPoint}()", style = MaterialTheme.typography.titleMedium)
                 HorizontalDivider()
-                ComposePreviewContent(result.content)
+                ComposePreviewContent(result.content, states)
             }
             is PreviewParseResult.Failure -> {
                 Text("Preview error", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error)
                 Text(
-                    "Line ${result.diagnostic.line}, column ${result.diagnostic.column}: ${result.diagnostic.message}",
+                    "Line \${result.diagnostic.line}, column \${result.diagnostic.column}: \${result.diagnostic.message}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                 )
