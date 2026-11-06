@@ -13,6 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -75,7 +77,24 @@ private fun ComposeEditorApp() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (showPreview) "Live Preview" else "Compose Editor") },
+                title = {
+                    if (showPreview) {
+                        val entryPoint = (previewResult as? PreviewParseResult.Success)?.entryPoint
+                        Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                            Text(
+                                entryPoint?.let { "$it()" } ?: "Live Preview",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                "LIVE PREVIEW",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    } else {
+                        Text("Compose Editor")
+                    }
+                },
                 navigationIcon = {
                     if (showPreview) TextButton(onClick = { showPreview = false }) { Text("‹ Editor") }
                 },
@@ -146,25 +165,90 @@ private fun SourceEditor(source: String, onSourceChange: (String) -> Unit, modif
 
 @Composable
 private fun PreviewScreen(result: PreviewParseResult?, modifier: Modifier = Modifier) {
-    Column(modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
         when (result) {
             is PreviewParseResult.Success -> {
                 val states = remember(result.states) {
                     result.states.associate { it.name to mutableIntStateOf(it.initialValue) }
                 }
-                Text("Rendered: ${result.entryPoint}()", style = MaterialTheme.typography.titleMedium)
-                HorizontalDivider()
-                ComposePreviewContent(result.content, states)
-            }
-            is PreviewParseResult.Failure -> {
-                Text("Preview error", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error)
+                Card(
+                    modifier = Modifier.fillMaxSize(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                "PREVIEW CANVAS",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "${states.size} states",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        HorizontalDivider()
+                        ComposePreviewContent(result.content, states)
+                    }
+                }
                 Text(
-                    "Line ${result.diagnostic.line}, column ${result.diagnostic.column}: ${result.diagnostic.message}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
+                    "Interactive preview · changes update state immediately",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp),
                 )
             }
-            null -> Text("No preview result. Return to the editor and run Preview.")
+            is PreviewParseResult.Failure -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            "Preview error",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        Text(
+                            "Line ${result.diagnostic.line}, column ${result.diagnostic.column}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        Text(
+                            result.diagnostic.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    }
+                }
+            }
+            null -> Text(
+                "No preview result. Return to the editor and run Preview.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
 }
