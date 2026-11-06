@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -144,7 +145,7 @@ private fun ComposeEditorApp() {
                 )
                 EditorAssistantPanel(
                     diagnostics = diagnostics,
-                    onInsert = { snippet -> source = source.trimEnd() + "\\n\\n" + snippet },
+                    onInsert = { snippet -> source = source.trimEnd() + "\n\n" + snippet },
                 )
             }
             if (showPreview) FloatingPreviewWindow(
@@ -169,7 +170,7 @@ private fun EditorAssistantPanel(
             Text("Compose", style = MaterialTheme.typography.labelLarge)
             Text("Completion", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
-        Row(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
             ComposeEditorLanguageTools.completions("").forEach { item ->
                 AssistChip(
                     onClick = { onInsert(item.insertText) },
