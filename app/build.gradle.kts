@@ -60,27 +60,50 @@ android {
     }
     signingConfigs {
         create("release") {
-            val signingStore = System.getenv("SIGN_KEY_STORE")
-                ?: error("SIGN_KEY_STORE must point to the restored repository keystore")
-            val signingAlias = System.getenv("SIGNING_KEY_ALIAS")
-                ?: error("SIGNING_KEY_ALIAS repository secret is required")
-            val signingKeyPassword = System.getenv("SIGNING_KEY_PASSWORD")
-                ?: error("SIGNING_KEY_PASSWORD repository secret is required")
-            val signingStorePassword = System.getenv("SIGNING_STORE_PASSWORD")
-                ?: error("SIGNING_STORE_PASSWORD repository secret is required")
-            val keystoreFile = file(signingStore)
-            require(keystoreFile.isFile) {
-                "Release keystore does not exist: $signingStore"
-            }
-            storeFile = keystoreFile
-            keyAlias = signingAlias
-            keyPassword = signingKeyPassword
-            storePassword = signingStorePassword
+            val signingStore = providers.environmentVariable("SIGN_KEY_STORE").orNull
+            keyAlias = providers.environmentVariable("SIGNING_KEY_ALIAS").orNull
+            keyPassword = providers.environmentVariable("SIGNING_KEY_PASSWORD").orNull
+            storePassword = providers.environmentVariable("SIGNING_STORE_PASSWORD").orNull
+            signingStore?.let { storeFile = file(it) }
         }
     }
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
+    // Keep debug/test configuration independent from private release credentials.
+    // Release assembly itself must validate every credential and the restored keystore.
+    tasks.register("validateReleaseSigning") {
+        group = "verification"
+        description = "Validates the release signing credentials and keystore."
+
+        doLast {
+            val requiredEnvironmentVariables = listOf(
+                "SIGN_KEY_STORE",
+                "SIGNING_KEY_ALIAS",
+                "SIGNING_KEY_PASSWORD",
+                "SIGNING_STORE_PASSWORD"
+            )
+            val missingVariables = requiredEnvironmentVariables.filter {
+                System.getenv(it).isNullOrBlank()
+            }
+            check(missingVariables.isEmpty()) {
+                "Missing release signing environment variables: ${missingVariables.joinToString()}"
+            }
+
+            val keystorePath = checkNotNull(System.getenv("SIGN_KEY_STORE"))
+            val keystore = file(keystorePath)
+            check(keystore.isFile) {
+                "Release keystore does not exist: $keystorePath"
+            }
+        }
+    }
+
+    tasks.configureEach {
+        if (name == "assembleRelease") {
+            dependsOn("validateReleaseSigning")
         }
     }
     buildFeatures {
