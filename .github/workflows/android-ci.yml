@@ -43,9 +43,29 @@ jobs:
           fileName: dev_keystore.jks
           encodedString: ${{ secrets.SIGNING_KEYSTORE }}
 
+      - name: Validate release signing configuration
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          SIGN_KEY_STORE: ${{ steps.keystore.outputs.filePath }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$SIGN_KEY_STORE" || { echo "::error::Keystore restoration did not return a file path"; exit 1; }
+          test -f "$SIGN_KEY_STORE" || { echo "::error::Restored keystore file does not exist"; exit 1; }
+          test -s "$SIGN_KEY_STORE" || { echo "::error::Restored keystore file is empty"; exit 1; }
+          for variable in SIGNING_KEY_ALIAS SIGNING_KEY_PASSWORD SIGNING_STORE_PASSWORD; do
+            if [ -z "${!variable:-}" ]; then
+              echo "::error::$variable repository secret is missing"
+              exit 1
+            fi
+          done
+
       - name: Build signed release APK
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
+          SIGN_KEY_STORE: ${{ steps.keystore.outputs.filePath }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
