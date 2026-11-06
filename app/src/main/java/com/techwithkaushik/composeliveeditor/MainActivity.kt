@@ -35,6 +35,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -55,6 +59,8 @@ import androidx.compose.ui.unit.sp
 import com.techwithkaushik.composeliveeditor.engine.ComposePreviewContent
 import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
 import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
+import com.techwithkaushik.composeliveeditor.editor.ComposeEditorLanguageTools
+import com.techwithkaushik.composeliveeditor.editor.DiagnosticSeverity
 
 private const val STARTER_SOURCE = """import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
@@ -90,8 +96,11 @@ private fun ComposeEditorApp() {
     var source by rememberSaveable { mutableStateOf(STARTER_SOURCE) }
     var showPreview by rememberSaveable { mutableStateOf(false) }
     var previewResult by remember { mutableStateOf<PreviewParseResult?>(null) }
+    var darkTheme by rememberSaveable { mutableStateOf(false) }
+    val diagnostics = remember(source) { ComposeEditorLanguageTools.analyze(source) }
     BackHandler(enabled = showPreview) { showPreview = false }
 
+    MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()) {
     Scaffold(
         modifier = Modifier.imePadding(),
         topBar = {
@@ -99,6 +108,9 @@ private fun ComposeEditorApp() {
                 title = { Text("Compose Editor") },
                 navigationIcon = {},
                 actions = {
+                    androidx.compose.material3.TextButton(onClick = { darkTheme = !darkTheme }) {
+                        Text(if (darkTheme) "Light" else "Dark")
+                    }
                     Button(
                         onClick = {
                             previewResult = ComposeSourceEngine.parse(source)
@@ -113,7 +125,7 @@ private fun ComposeEditorApp() {
             Column {
                 HorizontalDivider()
                 Text(
-                    "Kotlin · Compose · in-memory editor",
+                    "Kotlin · Compose · ${diagnostics.count { it.severity == DiagnosticSeverity.ERROR }} errors · ${diagnostics.count { it.severity == DiagnosticSeverity.WARNING }} warnings",
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 )
@@ -121,19 +133,63 @@ private fun ComposeEditorApp() {
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            SourceEditor(
-                source = source,
-                onSourceChange = {
-                    source = it
-                    if (showPreview) previewResult = ComposeSourceEngine.parse(it)
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
+            Column(Modifier.fillMaxSize()) {
+                SourceEditor(
+                    source = source,
+                    onSourceChange = {
+                        source = it
+                        if (showPreview) previewResult = ComposeSourceEngine.parse(it)
+                    },
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                )
+                EditorAssistantPanel(
+                    diagnostics = diagnostics,
+                    onInsert = { snippet -> source = source.trimEnd() + "\\n\\n" + snippet },
+                )
+            }
             if (showPreview) FloatingPreviewWindow(
                 result = previewResult,
                 onClose = { showPreview = false },
             )
         }
+    }
+    }
+}
+
+@Composable
+private fun EditorAssistantPanel(
+    diagnostics: List<com.techwithkaushik.composeliveeditor.editor.EditorDiagnostic>,
+    onInsert: (String) -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)).padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Compose", style = MaterialTheme.typography.labelLarge)
+            Text("Completion", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        }
+        Row(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            ComposeEditorLanguageTools.completions("").forEach { item ->
+                AssistChip(
+                    onClick = { onInsert(item.insertText) },
+                    label = { Text(item.label) },
+                    modifier = Modifier.padding(end = 4.dp),
+                    colors = AssistChipDefaults.assistChipColors(),
+                )
+            }
+        }
+        val visibleDiagnostics = diagnostics.take(3)
+        visibleDiagnostics.forEach { diagnostic ->
+            Text(
+                "${diagnostic.severity}: ${diagnostic.line}:${diagnostic.column} · ${diagnostic.message}",
+                color = if (diagnostic.severity == DiagnosticSeverity.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 2,
+            )
+        }
+        if (diagnostics.isEmpty()) Text("No diagnostics", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (diagnostics.size > visibleDiagnostics.size) Text("+${diagnostics.size - visibleDiagnostics.size} more diagnostics", style = MaterialTheme.typography.labelSmall)
     }
 }
 
