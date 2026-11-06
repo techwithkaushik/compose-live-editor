@@ -59,6 +59,24 @@ class ComposeSourceEngineTest {
     }
 
     @Test
+    fun rejectsUnsupportedTextArgumentsInsteadOfSilentlyDroppingThem() {
+        val result = ComposeSourceEngine.parse(
+            """@Composable fun Screen() { Column { Text("Hello", color = Color.Red) } }"""
+        )
+        assertTrue(result is PreviewParseResult.Failure)
+        assertTrue((result as PreviewParseResult.Failure).diagnostic.message.contains("Expected ')'"))
+    }
+
+    @Test
+    fun rejectsExecutableButtonCallbacksUntilStateRuntimeExists() {
+        val result = ComposeSourceEngine.parse(
+            """@Composable fun Screen() { Column { Button(onClick = { count++ }) { Text("Add") } } }"""
+        )
+        assertTrue(result is PreviewParseResult.Failure)
+        assertTrue((result as PreviewParseResult.Failure).diagnostic.message.contains("Expected '}'"))
+    }
+
+    @Test
     fun rejectsMalformedAndOversizedSource() {
         val malformed = ComposeSourceEngine.parse("@Composable fun Screen() { Column { Text( } }")
         assertTrue(malformed is PreviewParseResult.Failure)
