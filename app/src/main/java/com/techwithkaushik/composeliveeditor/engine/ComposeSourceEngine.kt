@@ -158,15 +158,18 @@ object ComposeSourceEngine {
 
         fun parse(): PreviewParseResult {
             var functionName: String? = null
+            var composableAnnotationSeen = false
             while (!atEnd()) {
                 if (match("@")) {
                     val annotation = expectIdentifier("Expected annotation name")
                     if (annotation.text != "Composable") {
                         fail("Only @Composable entry points are supported", annotation)
                     }
+                    composableAnnotationSeen = true
                     continue
                 }
                 if (matchIdentifier("fun")) {
+                    if (!composableAnnotationSeen) fail("Entry point must be annotated with @Composable", previous())
                     if (functionName != null) fail("Only one top-level function is supported", previous())
                     functionName = expectIdentifier("Expected composable function name").text
                     expect("(")

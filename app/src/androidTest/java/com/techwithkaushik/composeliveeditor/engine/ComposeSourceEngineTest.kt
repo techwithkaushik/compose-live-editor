@@ -52,6 +52,13 @@ class ComposeSourceEngineTest {
     }
 
     @Test
+    fun requiresComposableEntryPointAnnotation() {
+        val result = ComposeSourceEngine.parse("""fun Screen() { Column { Text("Hello") } }""")
+        assertTrue(result is PreviewParseResult.Failure)
+        assertTrue((result as PreviewParseResult.Failure).diagnostic.message.contains("@Composable"))
+    }
+
+    @Test
     fun rejectsMalformedAndOversizedSource() {
         val malformed = ComposeSourceEngine.parse("@Composable fun Screen() { Column { Text( } }")
         assertTrue(malformed is PreviewParseResult.Failure)

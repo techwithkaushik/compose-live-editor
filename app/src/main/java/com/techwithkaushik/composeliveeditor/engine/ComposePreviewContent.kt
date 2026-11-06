@@ -34,6 +34,7 @@ fun ComposePreviewContent(node: PreviewNode) {
         is PreviewNode.Text -> Text(node.value, style = MaterialTheme.typography.bodyLarge)
 
         is PreviewNode.Button -> Button(
+            enabled = false,
             onClick = { /* Source-level callback execution is intentionally not part of this parser milestone. */ },
         ) {
             node.children.forEach { ComposePreviewContent(it) }
