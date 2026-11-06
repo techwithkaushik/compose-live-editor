@@ -6,6 +6,9 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -135,35 +138,47 @@ private fun ComposeEditorApp() {
 
 @Composable
 private fun SourceEditor(source: String, onSourceChange: (String) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Edit the Kotlin source, then tap Run Preview.", style = MaterialTheme.typography.bodySmall)
-        BasicTextField(
-            value = source,
-            onValueChange = onSourceChange,
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-            ),
-            decorationBox = { innerTextField ->
-                Row(Modifier.fillMaxSize()) {
-                    Column(Modifier.padding(end = 12.dp)) {
-                        (1..maxOf(1, source.count { it == '\n' } + 1)).forEach { line ->
-                            Text(
-                                line.toString(),
-                                color = MaterialTheme.colorScheme.outline,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 14.sp,
-                                lineHeight = 20.sp,
-                            )
-                        }
+    val editorScrollState = rememberScrollState()
+    BasicTextField(
+        value = source,
+        onValueChange = onSourceChange,
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(top = 4.dp)
+            .verticalScroll(editorScrollState),
+        textStyle = MaterialTheme.typography.bodyMedium.copy(
+            fontFamily = FontFamily.Monospace,
+            fontSize = 13.sp,
+            lineHeight = 20.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+        ),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        decorationBox = { innerTextField ->
+            Row(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                        .padding(start = 8.dp, end = 8.dp),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    (1..maxOf(1, source.count { it == '\n' } + 1)).forEach { line ->
+                        Text(
+                            line.toString(),
+                            modifier = Modifier.width(28.dp),
+                            textAlign = TextAlign.End,
+                            color = MaterialTheme.colorScheme.outline,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            lineHeight = 20.sp,
+                        )
                     }
+                }
+                Box(Modifier.weight(1f).padding(start = 10.dp, end = 12.dp)) {
                     innerTextField()
                 }
-            },
-        )
-    }
+            }
+        },
+    )
 }
 
 @Composable
@@ -190,29 +205,37 @@ private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Un
         ) {
             Column(Modifier.fillMaxSize()) {
                 Row(
-                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(start = 10.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(
-                        Modifier.weight(1f).pointerInput(availableWidth, availableHeight, panelWidth, panelHeight) {
-                            detectDragGestures { change, drag ->
-                                change.consume()
-                                panelX = (panelX + drag.x / density).coerceIn(0f, (availableWidth - panelWidth).coerceAtLeast(0f))
-                                panelY = (panelY + drag.y / density).coerceIn(0f, (availableHeight - panelHeight).coerceAtLeast(0f))
-                            }
-                        },
-                        verticalArrangement = Arrangement.spacedBy(1.dp),
+                    Text(
+                        (result as? PreviewParseResult.Success)?.entryPoint?.let { it + "()" } ?: "Preview",
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxSize()
+                            .pointerInput(availableWidth, availableHeight, panelWidth, panelHeight) {
+                                detectDragGestures { change, drag ->
+                                    change.consume()
+                                    panelX = (panelX + drag.x / density).coerceIn(0f, (availableWidth - panelWidth).coerceAtLeast(0f))
+                                    panelY = (panelY + drag.y / density).coerceIn(0f, (availableHeight - panelHeight).coerceAtLeast(0f))
+                                }
+                            },
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                    )
+                    Box(
+                        Modifier
+                            .size(28.dp)
+                            .clickable(onClick = onClose),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            (result as? PreviewParseResult.Success)?.entryPoint?.let { it + "()" } ?: "Live Preview",
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 1,
-                        )
+                        Text("×", style = MaterialTheme.typography.titleMedium)
                     }
-                    TextButton(onClick = onClose) { Text("×") }
                 }
-                HorizontalDivider()
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     when (result) {
                         is PreviewParseResult.Success -> {
