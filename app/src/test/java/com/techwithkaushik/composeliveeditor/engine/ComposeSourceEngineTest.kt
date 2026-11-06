@@ -73,7 +73,7 @@ class ComposeSourceEngineTest {
     @Test
     fun parsesEscapedStringsAndNestedLayouts() {
         val result = ComposeSourceEngine.parse(
-            """@Composable fun Screen() { Column { Row { Text("A\\nB") } } }""",
+            """@Composable fun Screen() { Column { Row { Text("A\nB") } } }""",
         )
         assertTrue(result is PreviewParseResult.Success)
         val root = (result as PreviewParseResult.Success).content as PreviewNode.Column
