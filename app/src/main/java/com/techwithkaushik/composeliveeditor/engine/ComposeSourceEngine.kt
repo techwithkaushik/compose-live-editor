@@ -7,7 +7,13 @@ sealed interface PreviewNode {
     data class Row(val children: List<PreviewNode>) : PreviewNode
     data class Box(val children: List<PreviewNode>) : PreviewNode
     data class Text(val value: String) : PreviewNode
-    data class Button(val children: List<PreviewNode>, val actions: List<PreviewAction>) : PreviewNode
+    data class Button(val children: List<PreviewNode>, val actions: List<PreviewAction>, val style: ButtonStyle = ButtonStyle.FILLED) : PreviewNode
+    data class Card(val children: List<PreviewNode>) : PreviewNode
+    data class Surface(val children: List<PreviewNode>) : PreviewNode
+    data class Spacer(val heightDp: Int) : PreviewNode
+    data object Divider : PreviewNode
+
+enum class ButtonStyle { FILLED, OUTLINED, TEXT }
 }
 sealed interface PreviewAction {
     val stateName: String
@@ -239,7 +245,31 @@ object ComposeSourceEngine {
                         else -> PreviewNode.Box(children)
                     }
                 }
-                "Button" -> {
+                "Card", "Surface" -> {
+                    if (match("(")) {
+                        if (!check(")")) fail("${name.text} preview does not accept arguments yet", current())
+                        expect(")")
+                    }
+                    val content = children(depth)
+                    if (name.text == "Card") PreviewNode.Card(content) else PreviewNode.Surface(content)
+                }
+                "Spacer" -> {
+                    expect("(")
+                    val argsStart = current()
+                    balanced("(", ")")
+                    val argumentText = tokens.subList(tokens.indexOf(argsStart), index).joinToString("") { it.text }
+                    val height = Regex("""height\\s*\\(\\s*(\\d+)\\s*\\.dp\\s*\\)""").find(argumentText)?.groupValues?.get(1)?.toIntOrNull() ?: 8
+                    if (height !in 0..512) fail("Spacer height must be between 0 and 512 dp", argsStart)
+                    PreviewNode.Spacer(height)
+                }
+                "Divider", "HorizontalDivider" -> {
+                    if (match("(")) {
+                        if (!check(")")) fail("Divider preview does not accept arguments yet", current())
+                        expect(")")
+                    }
+                    PreviewNode.Divider
+                }
+                "Button", "OutlinedButton", "TextButton" -> {
                     expect("(")
                     val callback = identifier("Button only supports an onClick callback")
                     if (callback.text != "onClick") fail("Button only supports onClick state actions", callback)
@@ -251,9 +281,10 @@ object ComposeSourceEngine {
                         if (actions.size > MAX_ACTIONS) fail("Button supports at most $MAX_ACTIONS actions", previous())
                     }
                     expect("}"); expect(")")
-                    PreviewNode.Button(children(depth), actions)
+                    val style = when (name.text) { "OutlinedButton" -> ButtonStyle.OUTLINED; "TextButton" -> ButtonStyle.TEXT; else -> ButtonStyle.FILLED }
+                    PreviewNode.Button(children(depth), actions, style)
                 }
-                else -> fail("Unsupported Compose call '${name.text}'. Supported: Column, Row, Box, Text, Button", name)
+                else -> fail("Unsupported Compose call '${name.text}'. Supported: Column, Row, Box, Text, Button, OutlinedButton, TextButton, Card, Surface, Spacer, Divider", name)
             }
         }
 
