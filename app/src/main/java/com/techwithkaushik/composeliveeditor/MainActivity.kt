@@ -2,8 +2,8 @@ package com.techwithkaushik.composeliveeditor
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,12 +24,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.techwithkaushik.composeliveeditor.engine.ComposePreviewContent
+import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
+import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
 
 private const val STARTER_SOURCE = """import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.Column
@@ -64,74 +68,67 @@ class MainActivity : ComponentActivity() {
 private fun ComposeEditorApp() {
     var source by rememberSaveable { mutableStateOf(STARTER_SOURCE) }
     var showPreview by rememberSaveable { mutableStateOf(false) }
+    var previewResult by remember { mutableStateOf<PreviewParseResult?>(null) }
 
-    BackHandler(enabled = showPreview) {
-        showPreview = false
-    }
+    BackHandler(enabled = showPreview) { showPreview = false }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (showPreview) "Preview" else "Compose Editor") },
+                title = { Text(if (showPreview) "Live Preview" else "Compose Editor") },
                 navigationIcon = {
-                    if (showPreview) {
-                        TextButton(onClick = { showPreview = false }) {
-                            Text("‹ Editor")
-                        }
-                    }
+                    if (showPreview) TextButton(onClick = { showPreview = false }) { Text("‹ Editor") }
                 },
                 actions = {
                     if (!showPreview) {
                         Button(
-                            onClick = { showPreview = true },
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            Text("▶ Run Preview")
+                            onClick = {
+                                previewResult = ComposeSourceEngine.parse(source)
+                                showPreview = true
+                            },
+                            modifier = Modifier.padding(end = 8.dp),
+                        ) { Text("▶ Run Preview") }
+                    } else {
+                        TextButton(onClick = { previewResult = ComposeSourceEngine.parse(source) }) {
+                            Text("Refresh")
                         }
                     }
-                }
+                },
             )
         },
         bottomBar = {
             Column {
                 HorizontalDivider()
                 Text(
-                    text = if (showPreview) "Preview engine: not connected" else "Kotlin · Compose · In-memory editor",
+                    text = if (showPreview) "On-device source interpreter · declarative subset" else "Kotlin · Compose · in-memory editor",
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 )
             }
-        }
+        },
     ) { innerPadding ->
         if (showPreview) {
-            PreviewPlaceholder(
-                source = source,
-                modifier = Modifier.fillMaxSize().padding(innerPadding)
+            PreviewScreen(
+                result = previewResult,
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
             )
         } else {
             SourceEditor(
                 source = source,
                 onSourceChange = { source = it },
-                modifier = Modifier.fillMaxSize().padding(innerPadding)
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
             )
         }
     }
 }
 
 @Composable
-private fun SourceEditor(
-    source: String,
-    onSourceChange: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun SourceEditor(source: String, onSourceChange: (String) -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(
-            text = "Edit the sample code, then tap Run Preview.",
-            style = MaterialTheme.typography.bodySmall
-        )
+        Text("Edit the Kotlin source, then tap Run Preview.", style = MaterialTheme.typography.bodySmall)
         BasicTextField(
             value = source,
             onValueChange = onSourceChange,
@@ -139,7 +136,7 @@ private fun SourceEditor(
             textStyle = MaterialTheme.typography.bodyMedium.copy(
                 fontFamily = FontFamily.Monospace,
                 fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             ),
             decorationBox = { innerTextField ->
                 Row(modifier = Modifier.fillMaxSize()) {
@@ -150,38 +147,38 @@ private fun SourceEditor(
                                 color = MaterialTheme.colorScheme.outline,
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 14.sp,
-                                lineHeight = 20.sp
+                                lineHeight = 20.sp,
                             )
                         }
                     }
                     innerTextField()
                 }
-            }
+            },
         )
     }
 }
 
 @Composable
-private fun PreviewPlaceholder(
-    source: String,
-    modifier: Modifier = Modifier
-) {
+private fun PreviewScreen(result: PreviewParseResult?, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Preview is not available yet", style = MaterialTheme.typography.titleLarge)
-        Text(
-            "The editor and navigation are ready. The next milestone is an embedded Kotlin + Compose compiler; until it is integrated, this app will not pretend that your source code has been compiled or rendered.",
-            style = MaterialTheme.typography.bodyMedium
-        )
-        HorizontalDivider()
-        Text("Current source", style = MaterialTheme.typography.titleMedium)
-        Text(
-            text = source,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
-            lineHeight = 17.sp
-        )
+        when (result) {
+            is PreviewParseResult.Success -> {
+                Text("Rendered: ${result.entryPoint}()", style = MaterialTheme.typography.titleMedium)
+                HorizontalDivider()
+                ComposePreviewContent(result.content)
+            }
+            is PreviewParseResult.Failure -> {
+                Text("Preview error", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error)
+                Text(
+                    "Line ${result.diagnostic.line}, column ${result.diagnostic.column}: ${result.diagnostic.message}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            null -> Text("No preview result. Return to the editor and run Preview.")
+        }
     }
 }
