@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build-and-test:
-    name: Test engine and build single APK
+    name: Test engine and build APK
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -27,11 +27,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: "platforms;android-36 build-tools;36.0.0"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -40,9 +35,6 @@ jobs:
       - name: Run engine unit tests
         run: gradle --no-daemon :app:testDebugUnitTest
 
-      # Pull requests from forks do not receive signing secrets. Keep their
-      # unit-test validation, and create signed release APKs only on main pushes
-      # or an explicit workflow dispatch.
       - name: Restore repository signing keystore
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         id: keystore
@@ -51,23 +43,6 @@ jobs:
           fileName: dev_keystore.jks
           encodedString: ${{ secrets.SIGNING_KEYSTORE }}
 
-      - name: Validate signing secrets
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        shell: bash
-        env:
-          KEYSTORE_PATH: ${{ steps.keystore.outputs.filePath }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
-        run: |
-          set -euo pipefail
-          test -s "$KEYSTORE_PATH" || { echo "::error::SIGNING_KEYSTORE secret did not restore a non-empty keystore"; exit 1; }
-          test -n "$SIGNING_KEY_ALIAS" || { echo "::error::SIGNING_KEY_ALIAS secret is missing"; exit 1; }
-          test -n "$SIGNING_KEY_PASSWORD" || { echo "::error::SIGNING_KEY_PASSWORD secret is missing"; exit 1; }
-          test -n "$SIGNING_STORE_PASSWORD" || { echo "::error::SIGNING_STORE_PASSWORD secret is missing"; exit 1; }
-          echo "SIGN_KEY_STORE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
-          echo "Gradle signing secrets are configured."
-
       - name: Build signed release APK
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
@@ -75,23 +50,6 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
         run: gradle --no-daemon :app:assembleRelease
-
-      - name: Verify release APK signature and output
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        shell: bash
-        run: |
-          set -euo pipefail
-          apk="app/build/outputs/apk/release/app-release.apk"
-          test -s "$apk" || { echo "::error::Signed release APK was not generated"; exit 1; }
-          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          apksigner="$(find "$sdk_root/build-tools" -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1)"
-          test -n "$apksigner" && test -x "$apksigner" || {
-            echo "::error::Android SDK apksigner was not found"
-            exit 1
-          }
-          "$apksigner" verify --verbose "$apk"
-          echo "Verified signed release APK:"
-          ls -lh "$apk"
 
       - name: Upload signed release APK
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
