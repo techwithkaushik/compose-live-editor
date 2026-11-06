@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -92,6 +93,7 @@ private fun ComposeEditorApp() {
     BackHandler(enabled = showPreview) { showPreview = false }
 
     Scaffold(
+        modifier = Modifier.imePadding(),
         topBar = {
             TopAppBar(
                 title = { Text("Compose Editor") },
@@ -242,13 +244,13 @@ private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Un
                                 result.states.associate { it.name to mutableIntStateOf(it.initialValue) }
                             }
                             Column(
-                                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 ComposePreviewContent(result.content, states)
                             }
                         }
-                        is PreviewParseResult.Failure -> Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        is PreviewParseResult.Failure -> Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Preview error", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.titleMedium)
                             Text("Line ${result.diagnostic.line}, column ${result.diagnostic.column}", style = MaterialTheme.typography.labelSmall)
                             Text(result.diagnostic.message, style = MaterialTheme.typography.bodyMedium)
