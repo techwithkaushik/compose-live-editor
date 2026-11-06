@@ -58,6 +58,31 @@ android {
             "App version: versionName=$versionName, versionCode=$versionCode, branch=$gitBranch"
         )
     }
+    signingConfigs {
+        create("release") {
+            val signingStore = System.getenv("SIGN_KEY_STORE")
+                ?: error("SIGN_KEY_STORE must point to the restored repository keystore")
+            val signingAlias = System.getenv("SIGNING_KEY_ALIAS")
+                ?: error("SIGNING_KEY_ALIAS repository secret is required")
+            val signingKeyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+                ?: error("SIGNING_KEY_PASSWORD repository secret is required")
+            val signingStorePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                ?: error("SIGNING_STORE_PASSWORD repository secret is required")
+            val keystoreFile = file(signingStore)
+            require(keystoreFile.isFile) {
+                "Release keystore does not exist: $signingStore"
+            }
+            storeFile = keystoreFile
+            keyAlias = signingAlias
+            keyPassword = signingKeyPassword
+            storePassword = signingStorePassword
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
     buildFeatures {
         compose = true
     }

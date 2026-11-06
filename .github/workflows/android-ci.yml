@@ -40,22 +40,63 @@ jobs:
       - name: Run engine unit tests
         run: gradle --no-daemon :app:testDebugUnitTest
 
-      - name: Build the only APK
-        run: gradle --no-daemon :app:assembleDebug
+      # Pull requests from forks do not receive signing secrets. Keep their
+      # unit-test validation, and create signed release APKs only on main pushes
+      # or an explicit workflow dispatch.
+      - name: Restore repository signing keystore
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        id: keystore
+        uses: timheuer/base64-to-file@v2.0
+        with:
+          fileName: dev_keystore.jks
+          encodedString: ${{ secrets.SIGNING_KEYSTORE }}
 
-      - name: Verify single APK output
+      - name: Validate signing secrets
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          KEYSTORE_PATH: ${{ steps.keystore.outputs.filePath }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
         run: |
-          set -eu
-          test -s app/build/outputs/apk/debug/app-debug.apk
-          count=$(find app/build/outputs/apk -type f -name '*.apk' | wc -l)
-          test "$count" -eq 1
-          echo "Verified exactly one APK:"
-          ls -lh app/build/outputs/apk/debug/app-debug.apk
-          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E 'lib/[^/]+/.*\.so$' || true
+          set -euo pipefail
+          test -s "$KEYSTORE_PATH" || { echo "::error::SIGNING_KEYSTORE secret did not restore a non-empty keystore"; exit 1; }
+          test -n "$SIGNING_KEY_ALIAS" || { echo "::error::SIGNING_KEY_ALIAS secret is missing"; exit 1; }
+          test -n "$SIGNING_KEY_PASSWORD" || { echo "::error::SIGNING_KEY_PASSWORD secret is missing"; exit 1; }
+          test -n "$SIGNING_STORE_PASSWORD" || { echo "::error::SIGNING_STORE_PASSWORD secret is missing"; exit 1; }
+          echo "SIGN_KEY_STORE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "Gradle signing secrets are configured."
 
-      - name: Upload single debug APK
+      - name: Build signed release APK
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Verify release APK signature and output
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/release/app-release.apk"
+          test -s "$apk" || { echo "::error::Signed release APK was not generated"; exit 1; }
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          apksigner="$(find "$sdk_root/build-tools" -type f -name apksigner -print 2>/dev/null | sort -V | tail -n 1)"
+          test -n "$apksigner" && test -x "$apksigner" || {
+            echo "::error::Android SDK apksigner was not found"
+            exit 1
+          }
+          "$apksigner" verify --verbose "$apk"
+          echo "Verified signed release APK:"
+          ls -lh "$apk"
+
+      - name: Upload signed release APK
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: compose-live-editor
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: compose-live-editor-release
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
