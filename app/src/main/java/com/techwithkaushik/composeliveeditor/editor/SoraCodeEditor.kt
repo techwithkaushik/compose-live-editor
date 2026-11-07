@@ -71,6 +71,7 @@ fun SoraCodeEditor(
             if (editor.text.toString() != source) {
                 editor.setText(source)
             }
+            editor.invalidateDiagnostics()
         },
         onRelease = { editor ->
             editor.release()
