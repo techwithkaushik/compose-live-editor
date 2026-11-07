@@ -140,7 +140,6 @@ private fun ComposeEditorApp() {
         Box(Modifier.fillMaxSize().padding(padding)) {
             Column(Modifier.fillMaxSize()) {
                 SourceEditor(
-                    source = source,
                     value = editorValue,
                     onValueChange = {
                         editorValue = it
