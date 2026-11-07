@@ -7,6 +7,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.rosemoe.sora.event.ContentChangeEvent
+import io.github.rosemoe.sora.event.SelectionChangeEvent
 import io.github.rosemoe.sora.widget.CodeEditor
 import io.github.rosemoe.sora.widget.subscribeAlways
 
@@ -21,10 +22,12 @@ fun SoraCodeEditor(
     source: String,
     onSourceChange: (String) -> Unit,
     onEditorReady: (CodeEditor?) -> Unit,
+    onSelectionChange: (Int, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val currentOnSourceChange = rememberUpdatedState(onSourceChange)
     val currentOnEditorReady = rememberUpdatedState(onEditorReady)
+    val currentOnSelectionChange = rememberUpdatedState(onSelectionChange)
 
     AndroidView(
         modifier = modifier,
@@ -39,6 +42,9 @@ fun SoraCodeEditor(
                 setText(source)
                 subscribeAlways<ContentChangeEvent> {
                     currentOnSourceChange.value(text.toString())
+                }
+                subscribeAlways<SelectionChangeEvent> {
+                    currentOnSelectionChange.value(cursor.right, cursor.isSelected)
                 }
                 currentOnEditorReady.value(this)
             }
