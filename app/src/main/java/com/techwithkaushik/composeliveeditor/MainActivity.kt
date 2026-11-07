@@ -62,6 +62,7 @@ import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
 import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
 import com.techwithkaushik.composeliveeditor.editor.ComposeEditorLanguageTools
 import com.techwithkaushik.composeliveeditor.editor.DiagnosticSeverity
+import com.techwithkaushik.composeliveeditor.editor.ComposeKotlinSyntaxHighlighting
 
 private const val STARTER_SOURCE = """import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
@@ -211,6 +212,7 @@ private fun SourceEditor(source: String, onSourceChange: (String) -> Unit, modif
             color = MaterialTheme.colorScheme.onSurface,
         ),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        visualTransformation = ComposeKotlinSyntaxHighlighting,
         decorationBox = { innerTextField ->
             Row(Modifier.fillMaxSize()) {
                 Column(
