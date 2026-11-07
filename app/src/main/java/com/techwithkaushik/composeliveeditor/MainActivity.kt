@@ -7,8 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -30,7 +28,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -54,18 +51,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import com.techwithkaushik.composeliveeditor.engine.ComposePreviewContent
 import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
 import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
 import com.techwithkaushik.composeliveeditor.editor.ComposeEditorLanguageTools
 import com.techwithkaushik.composeliveeditor.editor.DiagnosticSeverity
-import com.techwithkaushik.composeliveeditor.editor.ComposeKotlinSyntaxHighlighting
 import com.techwithkaushik.composeliveeditor.editor.CompletionInsertion
 import com.techwithkaushik.composeliveeditor.editor.CompletionContext
+import com.techwithkaushik.composeliveeditor.editor.SoraCodeEditor
+import io.github.rosemoe.sora.widget.CodeEditor
 
 private const val STARTER_SOURCE = """import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
@@ -98,8 +96,15 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ComposeEditorApp() {
-    var editorValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(STARTER_SOURCE)) }
-    val source = editorValue.text
+    var source by rememberSaveable { mutableStateOf(STARTER_SOURCE) }
+    var codeEditor by remember { mutableStateOf<CodeEditor?>(null) }
+    var cursorOffset by remember { mutableIntStateOf(0) }
+    var hasSelection by remember { mutableStateOf(false) }
+    val completionPrefix = remember(source, cursorOffset, hasSelection) {
+        if (hasSelection) "" else CompletionContext.prefixAt(
+            TextFieldValue(source, selection = TextRange(cursorOffset.coerceIn(0, source.length)))
+        )
+    }
     var showPreview by rememberSaveable { mutableStateOf(false) }
     var previewResult by remember { mutableStateOf<PreviewParseResult?>(null) }
     var darkTheme by rememberSaveable { mutableStateOf(false) }
@@ -140,22 +145,40 @@ private fun ComposeEditorApp() {
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             Column(Modifier.fillMaxSize()) {
-                SourceEditor(
-                    value = editorValue,
-                    onValueChange = {
-                        editorValue = it
-                        if (showPreview) previewResult = ComposeSourceEngine.parse(it.text)
+                SoraCodeEditor(
+                    source = source,
+                    onSourceChange = { updated ->
+                        source = updated
+                        if (showPreview) previewResult = ComposeSourceEngine.parse(updated)
+                    },
+                    onEditorReady = { codeEditor = it },
+                    onSelectionChange = { offset, selected ->
+                        cursorOffset = offset
+                        hasSelection = selected
                     },
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 )
                 EditorAssistantPanel(
                     diagnostics = diagnostics,
-                    completionPrefix = CompletionContext.prefixAt(editorValue),
+                    completionPrefix = completionPrefix,
                     onInsert = { snippet ->
-                        val prefix = CompletionContext.prefixAt(editorValue)
-                        val updated = CompletionInsertion.complete(editorValue, snippet, prefix.length)
-                        editorValue = updated
-                        if (showPreview) previewResult = ComposeSourceEngine.parse(updated.text)
+                        val editor = codeEditor ?: return@EditorAssistantPanel
+                        if (!editor.cursor.isSelected) {
+                            val prefixLength = completionPrefix.length
+                            val cursor = editor.cursor.right
+                            val start = (cursor - prefixLength).coerceAtLeast(0)
+                            val startPosition = editor.text.indexer.getCharPosition(start)
+                            val endPosition = editor.text.indexer.getCharPosition(cursor)
+                            editor.setSelectionRegion(
+                                startPosition.line, startPosition.column,
+                                endPosition.line, endPosition.column,
+                            )
+                            editor.commitText(snippet, true, false)
+                            source = editor.text.toString()
+                            cursorOffset = editor.cursor.right
+                            hasSelection = false
+                            if (showPreview) previewResult = ComposeSourceEngine.parse(source)
+                        }
                     },
                 )
             }
@@ -216,53 +239,6 @@ private fun EditorAssistantPanel(
         if (diagnostics.isEmpty()) Text("No diagnostics", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (diagnostics.size > visibleDiagnostics.size) Text("+${diagnostics.size - visibleDiagnostics.size} more diagnostics", style = MaterialTheme.typography.labelSmall)
     }
-}
-
-@Composable
-private fun SourceEditor(value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit, modifier: Modifier = Modifier) {
-    val editorScrollState = rememberScrollState()
-    val source = value.text
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(top = 4.dp)
-            .verticalScroll(editorScrollState),
-        textStyle = MaterialTheme.typography.bodyMedium.copy(
-            fontFamily = FontFamily.Monospace,
-            fontSize = 13.sp,
-            lineHeight = 20.sp,
-            color = MaterialTheme.colorScheme.onSurface,
-        ),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        visualTransformation = ComposeKotlinSyntaxHighlighting,
-        decorationBox = { innerTextField ->
-            Row(Modifier.fillMaxSize()) {
-                Column(
-                    Modifier
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                        .padding(start = 8.dp, end = 8.dp),
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    (1..maxOf(1, source.count { it == '\n' } + 1)).forEach { line ->
-                        Text(
-                            line.toString(),
-                            modifier = Modifier.width(28.dp),
-                            textAlign = TextAlign.End,
-                            color = MaterialTheme.colorScheme.outline,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            lineHeight = 20.sp,
-                        )
-                    }
-                }
-                Box(Modifier.weight(1f).padding(start = 10.dp, end = 12.dp)) {
-                    innerTextField()
-                }
-            }
-        },
-    )
 }
 
 @Composable
