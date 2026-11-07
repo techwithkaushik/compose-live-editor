@@ -79,4 +79,75 @@ class CompletionInsertionTest {
 
         assertEquals(original, CompletionInsertion.insert(original, ""))
     }
+
+    @Test
+    fun completionReplacesTheTypedPrefix() {
+        val result = CompletionInsertion.complete(
+            TextFieldValue("Col", selection = TextRange(3)),
+            "Column",
+            prefixLength = 3,
+        )
+
+        assertEquals("Column", result.text)
+        assertEquals(6, result.selection.start)
+    }
+
+    @Test
+    fun completionReplacesPrefixWithoutDeletingFollowingText() {
+        val result = CompletionInsertion.complete(
+            TextFieldValue("ColAfter", selection = TextRange(3)),
+            "Column",
+            prefixLength = 3,
+        )
+
+        assertEquals("Column\\nAfter", result.text)
+        assertEquals(6, result.selection.start)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun completionRejectsPrefixLongerThanTextBeforeCursor() {
+        CompletionInsertion.complete(
+            TextFieldValue("Col", selection = TextRange(2)),
+            "Column",
+            prefixLength = 3,
+        )
+    }
+
+    @Test
+    fun findsIdentifierPrefixAtCaret() {
+        assertEquals(
+            "Col",
+            CompletionContext.prefixAt(TextFieldValue("Column", selection = TextRange(3))),
+        )
+    }
+
+    @Test
+    fun includesComposableAnnotationMarkerInPrefix() {
+        assertEquals(
+            "@Comp",
+            CompletionContext.prefixAt(TextFieldValue("@Comp", selection = TextRange(5))),
+        )
+    }
+
+    @Test
+    fun findsPrefixAfterMemberAccess() {
+        assertEquals(
+            "Tex",
+            CompletionContext.prefixAt(TextFieldValue("Modifier.Tex", selection = TextRange(12))),
+        )
+    }
+
+    @Test
+    fun suppressesPrefixForSelectedText() {
+        assertEquals(
+            "",
+            CompletionContext.prefixAt(TextFieldValue("Column", selection = TextRange(0, 3))),
+        )
+    }
+
+    @Test
+    fun returnsEmptyPrefixAtDocumentStart() {
+        assertEquals("", CompletionContext.prefixAt(TextFieldValue("", selection = TextRange(0))))
+    }
+
 }
