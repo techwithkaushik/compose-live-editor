@@ -60,7 +60,6 @@ import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
 import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
 import com.techwithkaushik.composeliveeditor.editor.ComposeEditorLanguageTools
 import com.techwithkaushik.composeliveeditor.editor.DiagnosticSeverity
-import com.techwithkaushik.composeliveeditor.editor.CompletionInsertion
 import com.techwithkaushik.composeliveeditor.editor.CompletionContext
 import com.techwithkaushik.composeliveeditor.editor.SoraCodeEditor
 import io.github.rosemoe.sora.widget.CodeEditor
