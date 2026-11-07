@@ -2,7 +2,6 @@ package com.techwithkaushik.composeliveeditor.editor
 
 import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
 import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -108,15 +107,14 @@ object ComposeKotlinSyntaxHighlighting : VisualTransformation {
     )
 
     override fun filter(text: AnnotatedString): TransformedText {
-        val colors = MaterialTheme.colorScheme
         val highlighted = buildAnnotatedString {
             append(text)
             tokenPattern.findAll(text.text).forEach { match ->
                 val color = when {
-                    match.groups[1] != null -> colors.tertiary
-                    match.groups[2] != null -> colors.outline
-                    match.groups[3] != null -> colors.secondary
-                    match.groups[4] != null -> colors.primary
+                    match.groups[1] != null -> Color(0xFF80CBC4)
+                    match.groups[2] != null -> Color(0xFF78909C)
+                    match.groups[3] != null -> Color(0xFFCE93D8)
+                    match.groups[4] != null -> Color(0xFF90CAF9)
                     match.groups[5] != null -> colors.secondary
                     else -> colors.tertiary
                 }
