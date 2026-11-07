@@ -2,13 +2,6 @@ package com.techwithkaushik.composeliveeditor.editor
 
 import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
 import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.input.OffsetMapping
-import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
 
 enum class DiagnosticSeverity { ERROR, WARNING, INFO }
 
@@ -97,29 +90,4 @@ object ComposeEditorLanguageTools {
     }
 
     fun supportedComponents(): Set<String> = componentNames
-}
-
-
-object ComposeKotlinSyntaxHighlighting : VisualTransformation {
-    private val tokenPattern = Regex(
-        """("(?:\\\\.|[^"\\\\])*")|(//[^\\n]*|/\\*[\\s\\S]*?\\*/)|(@[A-Za-z_][A-Za-z0-9_]*)|\\b(fun|val|var|by|remember|if|else|when|return|class|object|import|package)\\b|\\b(\\d+)\\b|\\b(Composable|Column|Row|Box|Text|Button|OutlinedButton|TextButton|Card|Surface|Spacer|Modifier)\\b""",
-    )
-
-    override fun filter(text: AnnotatedString): TransformedText {
-        val highlighted = buildAnnotatedString {
-            append(text)
-            tokenPattern.findAll(text.text).forEach { match ->
-                val color = when {
-                    match.groups[1] != null -> Color(0xFF80CBC4)
-                    match.groups[2] != null -> Color(0xFF78909C)
-                    match.groups[3] != null -> Color(0xFFCE93D8)
-                    match.groups[4] != null -> Color(0xFF90CAF9)
-                    match.groups[5] != null -> Color(0xFFCE93D8)
-                    else -> Color(0xFF80CBC4)
-                }
-                addStyle(SpanStyle(color = color), match.range.first, match.range.last + 1)
-            }
-        }
-        return TransformedText(highlighted, OffsetMapping.Identity)
-    }
 }
