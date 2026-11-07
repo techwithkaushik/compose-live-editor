@@ -115,8 +115,8 @@ object ComposeKotlinSyntaxHighlighting : VisualTransformation {
                     match.groups[2] != null -> Color(0xFF78909C)
                     match.groups[3] != null -> Color(0xFFCE93D8)
                     match.groups[4] != null -> Color(0xFF90CAF9)
-                    match.groups[5] != null -> colors.secondary
-                    else -> colors.tertiary
+                    match.groups[5] != null -> Color(0xFFCE93D8)
+                    else -> Color(0xFF80CBC4)
                 }
                 addStyle(SpanStyle(color = color), match.range.first, match.range.last + 1)
             }
