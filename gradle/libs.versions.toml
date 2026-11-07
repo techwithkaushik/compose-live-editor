@@ -5,6 +5,7 @@ coreKtx = "1.17.0"
 activityCompose = "1.11.0"
 lifecycleRuntimeKtx = "2.9.4"
 composeBom = "2025.10.00"
+soraEditor = "0.24.7"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -15,6 +16,8 @@ androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+sora-editor-bom = { module = "io.github.rosemoe:editor-bom", version.ref = "soraEditor" }
+sora-editor = { module = "io.github.rosemoe:editor" }
 
 junit = { module = "junit:junit", version = "4.13.2" }
 
