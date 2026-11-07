@@ -8,6 +8,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.rosemoe.sora.event.ContentChangeEvent
 import io.github.rosemoe.sora.event.SelectionChangeEvent
+import io.github.rosemoe.sora.lang.diagnostic.DiagnosticDetail
+import io.github.rosemoe.sora.lang.diagnostic.DiagnosticRegion
 import io.github.rosemoe.sora.widget.CodeEditor
 import io.github.rosemoe.sora.widget.subscribeAlways
 
@@ -23,11 +25,13 @@ fun SoraCodeEditor(
     onSourceChange: (String) -> Unit,
     onEditorReady: (CodeEditor?) -> Unit,
     onSelectionChange: (Int, Boolean) -> Unit,
+    diagnostics: List<EditorDiagnostic>,
     modifier: Modifier = Modifier,
 ) {
     val currentOnSourceChange = rememberUpdatedState(onSourceChange)
     val currentOnEditorReady = rememberUpdatedState(onEditorReady)
     val currentOnSelectionChange = rememberUpdatedState(onSelectionChange)
+    val currentDiagnostics = rememberUpdatedState(diagnostics)
 
     AndroidView(
         modifier = modifier,
@@ -40,6 +44,30 @@ fun SoraCodeEditor(
                     context.resources.displayMetrics,
                 )
                 setText(source)
+                setEditorLanguage(ComposeLanguage())
+                setLineNumberEnabled(true)
+                setHighlightCurrentLine(true)
+                setHighlightCurrentBlock(true)
+                setTabWidth(4)
+                props.deleteEmptyLineFast = true
+                registerDiagnosticProvider { container ->
+                    val text = this.text
+                    val regions = currentDiagnostics.value.mapNotNull { diagnostic ->
+                        val lineIndex = (diagnostic.line - 1).coerceIn(0, text.lineCount - 1)
+                        val lineStart = text.getCharIndex(lineIndex, 0)
+                        val lineLength = text.getColumnCount(lineIndex)
+                        val start = (lineStart + diagnostic.column - 1).coerceIn(lineStart, lineStart + lineLength)
+                        val end = (start + 1).coerceAtMost(lineStart + lineLength)
+                        if (start == end) null else DiagnosticRegion(
+                            start,
+                            end,
+                            if (diagnostic.severity == DiagnosticSeverity.ERROR) DiagnosticRegion.SEVERITY_ERROR else DiagnosticRegion.SEVERITY_WARNING,
+                            diagnostic.ruleId.hashCode().toLong(),
+                            DiagnosticDetail(diagnostic.message),
+                        )
+                    }
+                    container.setDiagnostics(regions)
+                }
                 subscribeAlways<ContentChangeEvent> {
                     currentOnSourceChange.value(text.toString())
                 }
