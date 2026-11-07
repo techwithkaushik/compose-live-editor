@@ -9,6 +9,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import io.github.rosemoe.sora.event.ContentChangeEvent
 import io.github.rosemoe.sora.lang.diagnostic.DiagnosticDetail
 import io.github.rosemoe.sora.lang.diagnostic.DiagnosticRegion
+import io.github.rosemoe.sora.lang.diagnostic.DiagnosticsContainer
 import io.github.rosemoe.sora.widget.CodeEditor
 import io.github.rosemoe.sora.widget.subscribeAlways
 
@@ -44,24 +45,7 @@ fun SoraCodeEditor(
                 setHighlightCurrentLine(true)
                 setHighlightCurrentBlock(true)
                 setTabWidth(4)
-                registerDiagnosticProvider { container ->
-                    val text = this.text
-                    val regions = currentDiagnostics.value.mapNotNull { diagnostic ->
-                        val lineIndex = (diagnostic.line - 1).coerceIn(0, text.lineCount - 1)
-                        val lineStart = text.getCharIndex(lineIndex, 0)
-                        val lineLength = text.getColumnCount(lineIndex)
-                        val start = (lineStart + diagnostic.column - 1).coerceIn(lineStart, lineStart + lineLength)
-                        val end = (start + 1).coerceAtMost(lineStart + lineLength)
-                        if (start == end) null else DiagnosticRegion(
-                            start,
-                            end,
-                            if (diagnostic.severity == DiagnosticSeverity.ERROR) DiagnosticRegion.SEVERITY_ERROR else DiagnosticRegion.SEVERITY_WARNING,
-                            diagnostic.ruleId.hashCode().toLong(),
-                            DiagnosticDetail(diagnostic.message),
-                        )
-                    }
-                    container.setDiagnostics(regions)
-                }
+                setDiagnostics(buildDiagnostics(this.text, currentDiagnostics.value))
                 subscribeAlways<ContentChangeEvent> {
                     currentOnSourceChange.value(text.toString())
                 }
@@ -71,7 +55,7 @@ fun SoraCodeEditor(
             if (editor.text.toString() != source) {
                 editor.setText(source)
             }
-            editor.invalidateDiagnostics()
+            editor.setDiagnostics(buildDiagnostics(editor.text, currentDiagnostics.value))
         },
         onRelease = { editor ->
             editor.release()
@@ -79,3 +63,27 @@ fun SoraCodeEditor(
     )
 }
 
+
+private fun buildDiagnostics(
+    content: io.github.rosemoe.sora.text.Content,
+    diagnostics: List<EditorDiagnostic>,
+): DiagnosticsContainer {
+    return DiagnosticsContainer().apply {
+        val regions = diagnostics.mapNotNull { diagnostic ->
+            if (content.lineCount == 0) return@mapNotNull null
+            val lineIndex = (diagnostic.line - 1).coerceIn(0, content.lineCount - 1)
+            val lineStart = content.getCharIndex(lineIndex, 0)
+            val lineLength = content.getColumnCount(lineIndex)
+            val start = (lineStart + diagnostic.column - 1).coerceIn(lineStart, lineStart + lineLength)
+            val end = (start + 1).coerceAtMost(lineStart + lineLength)
+            if (start == end) null else DiagnosticRegion(
+                start,
+                end,
+                if (diagnostic.severity == DiagnosticSeverity.ERROR) DiagnosticRegion.SEVERITY_ERROR else DiagnosticRegion.SEVERITY_WARNING,
+                diagnostic.ruleId.hashCode().toLong(),
+                DiagnosticDetail(diagnostic.message),
+            )
+        }
+        setDiagnostics(regions)
+    }
+}
