@@ -20,7 +20,7 @@ import io.github.rosemoe.sora.widget.subscribeAlways
 fun SoraCodeEditor(
     source: String,
     onSourceChange: (String) -> Unit,
-    onEditorReady: (CodeEditor) -> Unit,
+    onEditorReady: (CodeEditor?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val currentOnSourceChange = rememberUpdatedState(onSourceChange)
@@ -50,12 +50,9 @@ fun SoraCodeEditor(
             currentOnEditorReady.value(editor)
         },
         onRelease = { editor ->
-            currentOnEditorReady.value(nullEditorCallback())
+            currentOnEditorReady.value(null)
             editor.release()
         },
     )
 }
 
-private fun nullEditorCallback(): CodeEditor = throw UnsupportedOperationException(
-    "Sora editor release callback must be handled by the owner",
-)
