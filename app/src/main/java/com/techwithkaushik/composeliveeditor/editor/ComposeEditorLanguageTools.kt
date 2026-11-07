@@ -93,7 +93,7 @@ object ComposeEditorLanguageTools {
             CompletionItem("Spacer", "Spacer(modifier = Modifier.height(8.dp))", "Layout spacing"),
             CompletionItem("Divider", "HorizontalDivider()", "Visual separator"),
             CompletionItem("@Composable", "@Composable\nfun Screen() {\n    Column {\n        Text(\"Hello\")\n    }\n}", "Composable entry point"),
-        ).filter { query.isEmpty() || it.label.startsWith(query, ignoreCase = true) || it.detail.contains(query, ignoreCase = true) }
+        ).filter { query.isEmpty() || it.label.startsWith(query, ignoreCase = true) || it.detail.split(Regex("\\s+")).any { word -> word.startsWith(query, ignoreCase = true) } }
     }
 
     fun supportedComponents(): Set<String> = componentNames
