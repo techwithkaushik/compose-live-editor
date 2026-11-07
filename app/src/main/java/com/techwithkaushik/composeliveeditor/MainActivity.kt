@@ -56,7 +56,6 @@ import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
 import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
 import com.techwithkaushik.composeliveeditor.editor.ComposeEditorLanguageTools
 import com.techwithkaushik.composeliveeditor.editor.SoraCodeEditor
-import io.github.rosemoe.sora.widget.CodeEditor
 
 private const val STARTER_SOURCE = """import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
@@ -90,7 +89,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ComposeEditorApp() {
     var source by rememberSaveable { mutableStateOf(STARTER_SOURCE) }
-    var codeEditor by remember { mutableStateOf<CodeEditor?>(null) }
     var showPreview by rememberSaveable { mutableStateOf(false) }
     var previewResult by remember { mutableStateOf<PreviewParseResult?>(null) }
     var darkTheme by rememberSaveable { mutableStateOf(false) }
@@ -130,7 +128,6 @@ private fun ComposeEditorApp() {
                         source = updated
                         if (showPreview) previewResult = ComposeSourceEngine.parse(updated)
                     },
-                    onEditorReady = { codeEditor = it },
                     onSelectionChange = { _, _ -> },
                     diagnostics = diagnostics,
                     modifier = Modifier.fillMaxSize(),
