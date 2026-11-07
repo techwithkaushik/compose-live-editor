@@ -84,6 +84,6 @@ private fun buildDiagnostics(
                 DiagnosticDetail(diagnostic.message),
             )
         }
-        setDiagnostics(regions)
+        addDiagnostics(regions)
     }
 }
