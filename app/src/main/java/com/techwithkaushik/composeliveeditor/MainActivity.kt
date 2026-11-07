@@ -35,8 +35,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,14 +51,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
 import com.techwithkaushik.composeliveeditor.engine.ComposePreviewContent
 import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
 import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
 import com.techwithkaushik.composeliveeditor.editor.ComposeEditorLanguageTools
-import com.techwithkaushik.composeliveeditor.editor.DiagnosticSeverity
-import com.techwithkaushik.composeliveeditor.editor.CompletionContext
 import com.techwithkaushik.composeliveeditor.editor.SoraCodeEditor
 import io.github.rosemoe.sora.widget.CodeEditor
 
@@ -97,13 +91,6 @@ class MainActivity : ComponentActivity() {
 private fun ComposeEditorApp() {
     var source by rememberSaveable { mutableStateOf(STARTER_SOURCE) }
     var codeEditor by remember { mutableStateOf<CodeEditor?>(null) }
-    var cursorOffset by remember { mutableIntStateOf(0) }
-    var hasSelection by remember { mutableStateOf(false) }
-    val completionPrefix = remember(source, cursorOffset, hasSelection) {
-        if (hasSelection) "" else CompletionContext.prefixAt(
-            TextFieldValue(source, selection = TextRange(cursorOffset.coerceIn(0, source.length)))
-        )
-    }
     var showPreview by rememberSaveable { mutableStateOf(false) }
     var previewResult by remember { mutableStateOf<PreviewParseResult?>(null) }
     var darkTheme by rememberSaveable { mutableStateOf(false) }
@@ -132,14 +119,7 @@ private fun ComposeEditorApp() {
             )
         },
         bottomBar = {
-            Column {
-                HorizontalDivider()
-                Text(
-                    "Kotlin · Compose · ${diagnostics.count { it.severity == DiagnosticSeverity.ERROR }} errors · ${diagnostics.count { it.severity == DiagnosticSeverity.WARNING }} warnings",
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                )
-            }
+            HorizontalDivider()
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
@@ -151,34 +131,9 @@ private fun ComposeEditorApp() {
                         if (showPreview) previewResult = ComposeSourceEngine.parse(updated)
                     },
                     onEditorReady = { codeEditor = it },
-                    onSelectionChange = { offset, selected ->
-                        cursorOffset = offset
-                        hasSelection = selected
-                    },
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                )
-                EditorAssistantPanel(
+                    onSelectionChange = { _, _ -> },
                     diagnostics = diagnostics,
-                    completionPrefix = completionPrefix,
-                    onInsert = { snippet ->
-                        val editor = codeEditor ?: return@EditorAssistantPanel
-                        if (!editor.cursor.isSelected) {
-                            val prefixLength = completionPrefix.length
-                            val cursor = editor.cursor.right
-                            val start = (cursor - prefixLength).coerceAtLeast(0)
-                            val startPosition = editor.text.indexer.getCharPosition(start)
-                            val endPosition = editor.text.indexer.getCharPosition(cursor)
-                            editor.setSelectionRegion(
-                                startPosition.line, startPosition.column,
-                                endPosition.line, endPosition.column,
-                            )
-                            editor.commitText(snippet, true, false)
-                            source = editor.text.toString()
-                            cursorOffset = editor.cursor.right
-                            hasSelection = false
-                            if (showPreview) previewResult = ComposeSourceEngine.parse(source)
-                        }
-                    },
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
             if (showPreview) FloatingPreviewWindow(
@@ -187,56 +142,6 @@ private fun ComposeEditorApp() {
             )
         }
     }
-    }
-}
-
-@Composable
-private fun EditorAssistantPanel(
-    diagnostics: List<com.techwithkaushik.composeliveeditor.editor.EditorDiagnostic>,
-    completionPrefix: String,
-    onInsert: (String) -> Unit,
-) {
-    Column(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)).padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Compose", style = MaterialTheme.typography.labelLarge)
-            Text("Completion", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-        }
-        if (completionPrefix.isEmpty()) {
-            Text(
-                "Type a Compose component name to see completions",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                val suggestions = ComposeEditorLanguageTools.completions(completionPrefix)
-                suggestions.forEach { item ->
-                    AssistChip(
-                        onClick = { onInsert(item.insertText) },
-                        label = { Text(item.label) },
-                        modifier = Modifier.padding(end = 4.dp),
-                        colors = AssistChipDefaults.assistChipColors(),
-                    )
-                }
-                if (suggestions.isEmpty()) {
-                    Text("No matching completions", style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
-        val visibleDiagnostics = diagnostics.take(3)
-        visibleDiagnostics.forEach { diagnostic ->
-            Text(
-                "${diagnostic.severity}: ${diagnostic.line}:${diagnostic.column} · ${diagnostic.message}",
-                color = if (diagnostic.severity == DiagnosticSeverity.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 2,
-            )
-        }
-        if (diagnostics.isEmpty()) Text("No diagnostics", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (diagnostics.size > visibleDiagnostics.size) Text("+${diagnostics.size - visibleDiagnostics.size} more diagnostics", style = MaterialTheme.typography.labelSmall)
     }
 }
 
