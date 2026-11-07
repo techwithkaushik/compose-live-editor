@@ -46,5 +46,9 @@ class ComposeEditorLanguageToolsTest {
         assertTrue(labels.contains("OutlinedButton"))
         assertTrue(labels.contains("Card"))
         assertTrue(labels.contains("Surface"))
+        assertTrue(labels.contains("Spacer"))
+        assertTrue(labels.contains("Divider"))
+        assertTrue(labels.contains("@Composable"))
+        assertEquals(12, labels.size)
     }
 }
