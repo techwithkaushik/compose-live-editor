@@ -49,7 +49,6 @@ fun SoraCodeEditor(
                 setHighlightCurrentLine(true)
                 setHighlightCurrentBlock(true)
                 setTabWidth(4)
-                props.deleteEmptyLineFast = true
                 registerDiagnosticProvider { container ->
                     val text = this.text
                     val regions = currentDiagnostics.value.mapNotNull { diagnostic ->
