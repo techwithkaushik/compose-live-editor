@@ -94,7 +94,6 @@ object ComposeEditorLanguageTools {
             CompletionItem("Divider", "HorizontalDivider()", "Visual separator"),
             CompletionItem("@Composable", "@Composable\nfun Screen() {\n    Column {\n        Text(\"Hello\")\n    }\n}", "Composable entry point"),
         ).filter { query.isEmpty() || it.label.startsWith(query, ignoreCase = true) || it.detail.contains(query, ignoreCase = true) }
-            .take(8)
     }
 
     fun supportedComponents(): Set<String> = componentNames
