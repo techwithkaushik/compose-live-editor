@@ -127,12 +127,6 @@ class ComposeSourceEngineTest {
         assertEquals(ButtonStyle.TEXT, (card.children[2] as PreviewNode.Button).style)
     }
 
-        assertTrue("Expected success, got $result", result is PreviewParseResult.Success)
-        val card = (result as PreviewParseResult.Success).content as PreviewNode.Card
-        assertTrue(card.children[0] is PreviewNode.Surface)
-        assertEquals(ButtonStyle.OUTLINED, (card.children[1] as PreviewNode.Button).style)
-        assertEquals(ButtonStyle.TEXT, (card.children[2] as PreviewNode.Button).style)
-    }
 
     @Test
     fun parsesSpacerAndDivider() {
