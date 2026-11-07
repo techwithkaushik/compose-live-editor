@@ -65,6 +65,7 @@ import com.techwithkaushik.composeliveeditor.editor.ComposeEditorLanguageTools
 import com.techwithkaushik.composeliveeditor.editor.DiagnosticSeverity
 import com.techwithkaushik.composeliveeditor.editor.ComposeKotlinSyntaxHighlighting
 import com.techwithkaushik.composeliveeditor.editor.CompletionInsertion
+import com.techwithkaushik.composeliveeditor.editor.CompletionContext
 
 private const val STARTER_SOURCE = """import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
@@ -149,8 +150,10 @@ private fun ComposeEditorApp() {
                 )
                 EditorAssistantPanel(
                     diagnostics = diagnostics,
+                    completionPrefix = CompletionContext.prefixAt(editorValue),
                     onInsert = { snippet ->
-                        val updated = CompletionInsertion.insert(editorValue, snippet)
+                        val prefix = CompletionContext.prefixAt(editorValue)
+                        val updated = CompletionInsertion.complete(editorValue, snippet, prefix.length)
                         editorValue = updated
                         if (showPreview) previewResult = ComposeSourceEngine.parse(updated.text)
                     },
@@ -168,6 +171,7 @@ private fun ComposeEditorApp() {
 @Composable
 private fun EditorAssistantPanel(
     diagnostics: List<com.techwithkaushik.composeliveeditor.editor.EditorDiagnostic>,
+    completionPrefix: String,
     onInsert: (String) -> Unit,
 ) {
     Column(
@@ -178,14 +182,26 @@ private fun EditorAssistantPanel(
             Text("Compose", style = MaterialTheme.typography.labelLarge)
             Text("Completion", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-            ComposeEditorLanguageTools.completions("").forEach { item ->
-                AssistChip(
-                    onClick = { onInsert(item.insertText) },
-                    label = { Text(item.label) },
-                    modifier = Modifier.padding(end = 4.dp),
-                    colors = AssistChipDefaults.assistChipColors(),
-                )
+        if (completionPrefix.isEmpty()) {
+            Text(
+                "Type a Compose component name to see completions",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                val suggestions = ComposeEditorLanguageTools.completions(completionPrefix)
+                suggestions.forEach { item ->
+                    AssistChip(
+                        onClick = { onInsert(item.insertText) },
+                        label = { Text(item.label) },
+                        modifier = Modifier.padding(end = 4.dp),
+                        colors = AssistChipDefaults.assistChipColors(),
+                    )
+                }
+                if (suggestions.isEmpty()) {
+                    Text("No matching completions", style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
         val visibleDiagnostics = diagnostics.take(3)
