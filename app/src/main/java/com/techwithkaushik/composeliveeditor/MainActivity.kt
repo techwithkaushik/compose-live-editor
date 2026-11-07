@@ -55,6 +55,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.techwithkaushik.composeliveeditor.engine.ComposePreviewContent
@@ -95,7 +97,8 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ComposeEditorApp() {
-    var source by rememberSaveable { mutableStateOf(STARTER_SOURCE) }
+    var editorValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(STARTER_SOURCE)) }
+    val source = editorValue.text
     var showPreview by rememberSaveable { mutableStateOf(false) }
     var previewResult by remember { mutableStateOf<PreviewParseResult?>(null) }
     var darkTheme by rememberSaveable { mutableStateOf(false) }
@@ -138,15 +141,27 @@ private fun ComposeEditorApp() {
             Column(Modifier.fillMaxSize()) {
                 SourceEditor(
                     source = source,
-                    onSourceChange = {
-                        source = it
-                        if (showPreview) previewResult = ComposeSourceEngine.parse(it)
+                    value = editorValue,
+                    onValueChange = {
+                        editorValue = it
+                        if (showPreview) previewResult = ComposeSourceEngine.parse(it.text)
                     },
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 )
                 EditorAssistantPanel(
                     diagnostics = diagnostics,
-                    onInsert = { snippet -> source = source.trimEnd() + "\n\n" + snippet },
+                    onInsert = { snippet ->
+                        val current = editorValue
+                        val start = minOf(current.selection.start, current.selection.end)
+                        val end = maxOf(current.selection.start, current.selection.end)
+                        val prefix = if (start > 0 && current.text[start - 1] != '\n') "\n" else ""
+                        val suffix = if (end < current.text.length && current.text[end] != '\n') "\n" else ""
+                        val insertion = prefix + snippet + suffix
+                        val updated = current.text.replaceRange(start, end, insertion)
+                        val cursor = start + prefix.length + snippet.length
+                        editorValue = TextFieldValue(updated, selection = TextRange(cursor))
+                        if (showPreview) previewResult = ComposeSourceEngine.parse(updated)
+                    },
                 )
             }
             if (showPreview) FloatingPreviewWindow(
@@ -196,11 +211,12 @@ private fun EditorAssistantPanel(
 }
 
 @Composable
-private fun SourceEditor(source: String, onSourceChange: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun SourceEditor(value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit, modifier: Modifier = Modifier) {
     val editorScrollState = rememberScrollState()
+    val source = value.text
     BasicTextField(
-        value = source,
-        onValueChange = onSourceChange,
+        value = value,
+        onValueChange = onValueChange,
         modifier = modifier
             .background(MaterialTheme.colorScheme.surface)
             .padding(top = 4.dp)
