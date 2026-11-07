@@ -65,6 +65,7 @@ import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
 import com.techwithkaushik.composeliveeditor.editor.ComposeEditorLanguageTools
 import com.techwithkaushik.composeliveeditor.editor.DiagnosticSeverity
 import com.techwithkaushik.composeliveeditor.editor.ComposeKotlinSyntaxHighlighting
+import com.techwithkaushik.composeliveeditor.editor.CompletionInsertion
 
 private const val STARTER_SOURCE = """import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
@@ -150,16 +151,9 @@ private fun ComposeEditorApp() {
                 EditorAssistantPanel(
                     diagnostics = diagnostics,
                     onInsert = { snippet ->
-                        val current = editorValue
-                        val start = minOf(current.selection.start, current.selection.end)
-                        val end = maxOf(current.selection.start, current.selection.end)
-                        val prefix = if (start > 0 && current.text[start - 1] != '\n') "\n" else ""
-                        val suffix = if (end < current.text.length && current.text[end] != '\n') "\n" else ""
-                        val insertion = prefix + snippet + suffix
-                        val updated = current.text.replaceRange(start, end, insertion)
-                        val cursor = start + prefix.length + snippet.length
-                        editorValue = TextFieldValue(updated, selection = TextRange(cursor))
-                        if (showPreview) previewResult = ComposeSourceEngine.parse(updated)
+                        val updated = CompletionInsertion.insert(editorValue, snippet)
+                        editorValue = updated
+                        if (showPreview) previewResult = ComposeSourceEngine.parse(updated.text)
                     },
                 )
             }
