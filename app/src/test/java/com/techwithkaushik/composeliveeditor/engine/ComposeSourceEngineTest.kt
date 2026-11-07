@@ -73,7 +73,7 @@ class ComposeSourceEngineTest {
     @Test
     fun parsesEscapedStringsAndNestedLayouts() {
         val result = ComposeSourceEngine.parse(
-            """@Composable fun Screen() { Column { Row { Text("A\\nB") } } }""",
+            """@Composable fun Screen() { Column { Row { Text("A\nB") } } }""",
         )
         assertTrue(result is PreviewParseResult.Success)
         val root = (result as PreviewParseResult.Success).content as PreviewNode.Column
@@ -113,14 +113,20 @@ class ComposeSourceEngineTest {
     @Test
     fun parsesMaterialContainersAndButtonVariants() {
         val result = ComposeSourceEngine.parse(
-            """@Composable fun Screen() {
-                Card {
-                    Surface { Text("Content") }
-                    OutlinedButton(onClick = { }) { Text("Outlined") }
-                    TextButton(onClick = { }) { Text("Text action") }
-                }
-            }""",
+            """@Composable fun Screen() { Column { Card {
+                Surface { Text("Content") }
+                OutlinedButton(onClick = { }) { Text("Outlined") }
+                TextButton(onClick = { }) { Text("Text action") }
+            } } }""",
         )
+        assertTrue("Expected success, got $result", result is PreviewParseResult.Success)
+        val root = (result as PreviewParseResult.Success).content as PreviewNode.Column
+        val card = root.children.single() as PreviewNode.Card
+        assertTrue(card.children[0] is PreviewNode.Surface)
+        assertEquals(ButtonStyle.OUTLINED, (card.children[1] as PreviewNode.Button).style)
+        assertEquals(ButtonStyle.TEXT, (card.children[2] as PreviewNode.Button).style)
+    }
+
         assertTrue("Expected success, got $result", result is PreviewParseResult.Success)
         val card = (result as PreviewParseResult.Success).content as PreviewNode.Card
         assertTrue(card.children[0] is PreviewNode.Surface)
