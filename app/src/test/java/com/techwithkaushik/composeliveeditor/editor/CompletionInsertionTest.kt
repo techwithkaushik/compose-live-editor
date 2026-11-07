@@ -100,7 +100,7 @@ class CompletionInsertionTest {
             prefixLength = 3,
         )
 
-        assertEquals("Column\\nAfter", result.text)
+        assertEquals("Column\nAfter", result.text)
         assertEquals(6, result.selection.start)
     }
 
