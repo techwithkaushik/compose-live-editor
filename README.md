@@ -1,28 +1,39 @@
 # Compose Live Editor
 
-A lightweight Android-first Kotlin/Jetpack Compose editor targeting 32-bit ARM (\`armeabi-v7a\`).
+Android-first Kotlin/Jetpack Compose source editor targeting Android API 26+ and ARM32-compatible builds.
 
-## Active preview engine
+## Live preview
 
-Run Preview parses source locally and renders the supported tree with the app's real Jetpack Compose runtime. It is a bounded interpreter, not a Kotlin compiler or arbitrary Kotlin execution environment.
+The preview engine is a bounded Kotlin/Compose source interpreter. It renders parsed nodes using the app's real Jetpack Compose Material 3 runtime; it does not compile or execute arbitrary Kotlin.
 
-Supported syntax:
-- One top-level \`@Composable fun Name() { ... }\` entry point.
-- Optional package/import declarations before the entry point.
-- \`Column { ... }\`, \`Row { ... }\`, and \`Box { ... }\`.
-- \`Text("literal")\`, \`Text(text = "literal")\`, and integer state interpolation such as \`$count\`.
-- State declarations before the root: \`var count by remember { mutableIntStateOf(0) }\` or \`mutableStateOf(0)\`.
-- Button callback actions: \`count++\`, \`count--\`, \`count += 2\`, \`count -= 2\`, and \`count = 10\`.
-- Button state updates use Compose snapshot state and automatically recompose the preview.
+Supported preview constructs:
+- One top-level `@Composable fun Name() { ... }` entry point.
+- Package and import declarations.
+- `Column`, `Row`, and `Box` layout containers.
+- `Card` and `Surface` containers.
+- `Text("literal")` and integer state interpolation.
+- `Button`, `OutlinedButton`, and `TextButton` with bounded integer state actions.
+- `Spacer(modifier = Modifier.height(n.dp))` for integer heights from 0 to 512 dp.
+- `Divider()` and `HorizontalDivider()`.
+- Integer state declared with `remember { mutableIntStateOf(n) }` or `remember { mutableStateOf(n) }`.
 
-Unsupported Kotlin constructs produce source-located errors. General functions, loops, conditionals, arbitrary lambdas, non-integer state, modifiers, additional Material components, and general expressions are not supported. Limits: 64 KiB source, 32 layout nesting levels, 512 nodes, 32 state variables, and 32 actions per button.
+Unsupported Kotlin constructs are rejected with source-located preview diagnostics. Limits: 64 KiB source, 32 layout nesting levels, 512 nodes, 32 state variables, and 32 actions per button.
 
-There is no Termux or remote compilation service. Parser tests run as JVM unit tests, and CI publishes exactly one installable debug APK.
+## Editor assistance
 
-## Build
-Open this repository in Android Studio and run \`assembleDebug\`. The project uses Kotlin DSL and a Gradle Version Catalog.
+- Light and dark Material 3 editor themes.
+- Compose component completion palette with insertable snippets.
+- Live parser diagnostics, trailing-whitespace warnings, TODO/FIXME notices, and basic unused-import checks.
+- Diagnostic counts in the editor status bar.
 
-## Target
-- Android min SDK: 26
-- Primary ABI: \`armeabi-v7a\`
-- CI JDK: 17
+The current completion and diagnostics layer is a local Compose-aware editor assistant, not a Kotlin Language Server Protocol implementation. Full Kotlin semantic analysis, compiler-backed diagnostics, cursor-aware completion, syntax highlighting, and formatting require further editor infrastructure.
+
+## Build and verification
+
+- JDK 17
+- Kotlin DSL and Gradle Version Catalog
+- Android min SDK 26
+- CI runs JVM unit tests and builds/signs the release APK using repository signing secrets.
+- The preview parser and editor assistance have JVM unit tests.
+
+Run `gradle :app:testDebugUnitTest :app:assembleDebug` for local verification. Release CI uses `gradle :app:assembleRelease`.
