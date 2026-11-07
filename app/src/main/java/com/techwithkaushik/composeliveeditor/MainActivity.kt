@@ -128,7 +128,6 @@ private fun ComposeEditorApp() {
                         source = updated
                         if (showPreview) previewResult = ComposeSourceEngine.parse(updated)
                     },
-                    onSelectionChange = { _, _ -> },
                     diagnostics = diagnostics,
                     modifier = Modifier.fillMaxSize(),
                 )
