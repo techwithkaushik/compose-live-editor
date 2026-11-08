@@ -9,16 +9,12 @@ import androidx.compose.ui.viewinterop.AndroidView
 import io.github.rosemoe.sora.event.ContentChangeEvent
 import io.github.rosemoe.sora.lang.diagnostic.DiagnosticDetail
 import io.github.rosemoe.sora.lang.diagnostic.DiagnosticRegion
-import io.github.rosemoe.sora.lang.diagnostic.DiagnosticsContainer\nimport io.github.rosemoe.sora.lang.diagnostic.Quickfix
+import io.github.rosemoe.sora.lang.diagnostic.DiagnosticsContainer
+import io.github.rosemoe.sora.lang.diagnostic.Quickfix
 import io.github.rosemoe.sora.widget.CodeEditor
 import io.github.rosemoe.sora.widget.subscribeAlways
 
-/**
- * Hosts the production Sora editor inside the Compose screen.
- *
- * Sora owns editing, selection, scrolling, undo/redo, text actions and input
- * handling. Compose receives document changes for diagnostics and preview.
- */
+/** Hosts Sora's native editor and native diagnostic tooltip/quick-fix UI. */
 @Composable
 fun SoraCodeEditor(
     source: String,
@@ -45,29 +41,25 @@ fun SoraCodeEditor(
                 setHighlightCurrentLine(true)
                 setHighlightCurrentBlock(true)
                 setTabWidth(4)
-                setDiagnostics(buildDiagnostics(this.text, currentDiagnostics.value))
+                setDiagnostics(buildDiagnostics(this, currentDiagnostics.value))
                 subscribeAlways<ContentChangeEvent> {
                     currentOnSourceChange.value(text.toString())
                 }
             }
         },
         update = { editor ->
-            if (editor.text.toString() != source) {
-                editor.setText(source)
-            }
-            editor.setDiagnostics(buildDiagnostics(editor.text, currentDiagnostics.value))
+            if (editor.text.toString() != source) editor.setText(source)
+            editor.setDiagnostics(buildDiagnostics(editor, currentDiagnostics.value))
         },
-        onRelease = { editor ->
-            editor.release()
-        },
+        onRelease = { editor -> editor.release() },
     )
 }
 
-
 private fun buildDiagnostics(
-    content: io.github.rosemoe.sora.text.Content,
+    editor: CodeEditor,
     diagnostics: List<EditorDiagnostic>,
 ): DiagnosticsContainer {
+    val content = editor.text
     return DiagnosticsContainer().apply {
         val regions = diagnostics.mapNotNull { diagnostic ->
             if (content.lineCount == 0) return@mapNotNull null
@@ -76,39 +68,43 @@ private fun buildDiagnostics(
             val lineLength = content.getColumnCount(lineIndex)
             val start = (lineStart + diagnostic.column - 1).coerceIn(lineStart, lineStart + lineLength)
             val end = (start + 1).coerceAtMost(lineStart + lineLength)
-            if (start == end) null else DiagnosticRegion(
+            if (start == end) return@mapNotNull null
+
+            val quickfixes = diagnostic.ruleId
+                .takeIf { it.startsWith("missing-import:") }
+                ?.removePrefix("missing-import:")
+                ?.let { qualifiedName ->
+                    listOf(
+                        Quickfix(
+                            "Import \${qualifiedName.substringAfterLast('.')}",
+                            fixAction = Runnable { insertImport(content, qualifiedName) },
+                        ),
+                    )
+                }
+
+            DiagnosticRegion(
                 start,
                 end,
-                if (diagnostic.severity == DiagnosticSeverity.ERROR) DiagnosticRegion.SEVERITY_ERROR else DiagnosticRegion.SEVERITY_WARNING,
+                when (diagnostic.severity) {
+                    DiagnosticSeverity.ERROR -> DiagnosticRegion.SEVERITY_ERROR
+                    DiagnosticSeverity.WARNING -> DiagnosticRegion.SEVERITY_WARNING
+                    DiagnosticSeverity.INFO -> DiagnosticRegion.SEVERITY_INFO
+                },
                 diagnostic.ruleId.hashCode().toLong(),
-                DiagnosticDetail(
-                    diagnostic.message,
-                    quickfixes = diagnostic.ruleId
-                        .takeIf { it.startsWith("missing-import:") }
-                        ?.removePrefix("missing-import:")
-                        ?.let { qualifiedName ->
-                            listOf(
-                                Quickfix(
-                                    "Import ${qualifiedName.substringAfterLast('.')}",
-                                    fixAction = Runnable { insertImport(content, qualifiedName) },
-                                ),
-                            )
-                        },
-                ),
+                DiagnosticDetail(diagnostic.message, quickfixes = quickfixes),
             )
         }
         addDiagnostics(regions)
     }
 }
 
-
 private fun insertImport(
     content: io.github.rosemoe.sora.text.Content,
     qualifiedName: String,
 ) {
-    val currentSource = content.toString()
     val importLine = "import $qualifiedName"
-    if (Regex("(?m)^\\s*${Regex.escape(importLine)}\\s*$").containsMatchIn(currentSource)) return
+    val currentSource = content.toString()
+    if (Regex("(?m)^\\s*\${Regex.escape(importLine)}\\s*$").containsMatchIn(currentSource)) return
 
     val lines = currentSource.lines()
     val packageLine = lines.indexOfFirst { it.trimStart().startsWith("package ") }
@@ -118,5 +114,5 @@ private fun insertImport(
         packageLine >= 0 -> packageLine + 1
         else -> 0
     }
-    content.insert(insertionLine, 0, "$importLine\\n")
+    content.insert(insertionLine, 0, "$importLine\n")
 }
