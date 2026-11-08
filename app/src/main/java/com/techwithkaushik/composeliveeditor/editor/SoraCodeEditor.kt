@@ -9,7 +9,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import io.github.rosemoe.sora.event.ContentChangeEvent
 import io.github.rosemoe.sora.lang.diagnostic.DiagnosticDetail
 import io.github.rosemoe.sora.lang.diagnostic.DiagnosticRegion
-import io.github.rosemoe.sora.lang.diagnostic.DiagnosticsContainer
+import io.github.rosemoe.sora.lang.diagnostic.DiagnosticsContainer\nimport io.github.rosemoe.sora.lang.diagnostic.Quickfix
 import io.github.rosemoe.sora.widget.CodeEditor
 import io.github.rosemoe.sora.widget.subscribeAlways
 
@@ -81,9 +81,42 @@ private fun buildDiagnostics(
                 end,
                 if (diagnostic.severity == DiagnosticSeverity.ERROR) DiagnosticRegion.SEVERITY_ERROR else DiagnosticRegion.SEVERITY_WARNING,
                 diagnostic.ruleId.hashCode().toLong(),
-                DiagnosticDetail(diagnostic.message),
+                DiagnosticDetail(
+                    diagnostic.message,
+                    quickfixes = diagnostic.ruleId
+                        .takeIf { it.startsWith("missing-import:") }
+                        ?.removePrefix("missing-import:")
+                        ?.let { qualifiedName ->
+                            listOf(
+                                Quickfix(
+                                    "Import ${qualifiedName.substringAfterLast('.')}",
+                                    fixAction = Runnable { insertImport(content, qualifiedName) },
+                                ),
+                            )
+                        },
+                ),
             )
         }
         addDiagnostics(regions)
     }
+}
+
+
+private fun insertImport(
+    content: io.github.rosemoe.sora.text.Content,
+    qualifiedName: String,
+) {
+    val currentSource = content.toString()
+    val importLine = "import $qualifiedName"
+    if (Regex("(?m)^\\s*${Regex.escape(importLine)}\\s*$").containsMatchIn(currentSource)) return
+
+    val lines = currentSource.lines()
+    val packageLine = lines.indexOfFirst { it.trimStart().startsWith("package ") }
+    val lastImportLine = lines.indexOfLast { it.trimStart().startsWith("import ") }
+    val insertionLine = when {
+        lastImportLine >= 0 -> lastImportLine + 1
+        packageLine >= 0 -> packageLine + 1
+        else -> 0
+    }
+    content.insert(insertionLine, 0, "$importLine\\n")
 }
