@@ -132,6 +132,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(platform(libs.sora.editor.bom))
     implementation(libs.sora.editor)
+    implementation(libs.sora.language.textmate)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
