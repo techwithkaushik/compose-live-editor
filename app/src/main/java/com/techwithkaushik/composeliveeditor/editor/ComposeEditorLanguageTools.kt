@@ -12,7 +12,7 @@ object ComposeEditorLanguageTools {
     private val composablePattern = Regex("@Composable\\s+fun\\s+([A-Za-z_][A-Za-z0-9_]*)")
     private val trailingWhitespace = Regex("[ \\t]+$", RegexOption.MULTILINE)
     private val todoPattern = Regex("\\b(TODO|FIXME)\\b")
-    private val componentUsagePattern = Regex("\\b([A-Z][A-Za-z0-9_]*)\\b")
+    private val componentUsagePattern = Regex("\\b([A-Za-z_][A-Za-z0-9_]*)\\b")
 
     private val composePackages = listOf(
         "androidx.compose.foundation.layout" to """Column Row Box Spacer Arrangement BoxScope ColumnScope RowScope WindowInsets WindowInsetsSides PaddingValues fillMaxSize fillMaxWidth fillMaxHeight width height size requiredWidth requiredHeight requiredSize widthIn heightIn sizeIn defaultMinSize padding offset absoluteOffset wrapContentSize wrapContentWidth wrapContentHeight weight horizontalScroll verticalScroll FlowRow FlowColumn""",
