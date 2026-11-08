@@ -70,17 +70,19 @@ private fun buildDiagnostics(
             val end = (start + 1).coerceAtMost(lineStart + lineLength)
             if (start == end) return@mapNotNull null
 
-            val quickfixes = diagnostic.ruleId
-                .takeIf { it.startsWith("missing-import:") }
-                ?.removePrefix("missing-import:")
-                ?.let { qualifiedName ->
-                    listOf(
-                        Quickfix(
-                            "Import \${qualifiedName.substringAfterLast('.')}",
-                            fixAction = Runnable { insertImport(content, qualifiedName) },
-                        ),
-                    )
-                }
+            val importCandidates = when {
+                diagnostic.ruleId.startsWith("missing-import:") ->
+                    listOf(diagnostic.ruleId.removePrefix("missing-import:"))
+                diagnostic.ruleId.startsWith("ambiguous-import:") ->
+                    diagnostic.ruleId.removePrefix("ambiguous-import:").split("|").filter(String::isNotBlank)
+                else -> emptyList()
+            }
+            val quickfixes = importCandidates.map { qualifiedName ->
+                Quickfix(
+                    "Import " + qualifiedName.substringAfterLast('.'),
+                    fixAction = Runnable { insertImport(content, qualifiedName) },
+                )
+            }.ifEmpty { null }
 
             DiagnosticRegion(
                 start,
