@@ -41,9 +41,10 @@ object ComposeEditorLanguageTools {
 
     private val composeSymbols = composePackages.flatMap { (packageName, names) ->
         names.split(Regex("\\s+")).filter(String::isNotBlank).distinct().map { it to "$packageName.$it" }
-    }.distinctBy { it.first }.toMap()
-    private val symbolsByName = composeSymbols.entries.groupBy({ it.key }, { it.value })
-    private val completionCatalog = composeSymbols.entries.sortedBy { it.key }.map { (name, path) -> CompletionItem(name, name, path) }
+    }
+    private val symbolsByName = composeSymbols.groupBy({ it.first }, { it.second })
+    private val completionCatalog = composeSymbols.distinctBy { it.first }.sortedBy { it.first }
+        .map { (name, path) -> CompletionItem(name, name, path) }
 
     fun analyze(source: String): List<EditorDiagnostic> {
         if (source.isEmpty()) return emptyList()
