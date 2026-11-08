@@ -47,10 +47,10 @@ object ComposeEditorLanguageTools {
         .map { (name, path) -> CompletionItem(name, completionSnippet(name), path) }
 
     private fun completionSnippet(name: String): String = when (name) {
-        "Column", "Row", "Box" -> "$name {\\n    \\n}"
-        "Button", "OutlinedButton", "TextButton" -> "$name(onClick = { }) {\\n    Text(\\\"Action\\\")\\n}"
-        "Card", "Surface" -> "$name {\\n    Text(\\\"Content\\\")\\n}"
-        "Text" -> "Text(\\\"Hello\\\")"
+        "Column", "Row", "Box" -> "$name {\n    \n}"
+        "Button", "OutlinedButton", "TextButton" -> "$name(onClick = { }) {\n    Text(\"Action\")\n}"
+        "Card", "Surface" -> "$name {\n    Text(\"Content\")\n}"
+        "Text" -> "Text(\"Hello\")"
         "Spacer" -> "Spacer(modifier = Modifier.height(8.dp))"
         "HorizontalDivider" -> "HorizontalDivider()"
         else -> name
