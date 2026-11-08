@@ -49,6 +49,10 @@ class ComposeEditorLanguageToolsTest {
         assertTrue(labels.contains("Spacer"))
         assertTrue(labels.contains("Divider"))
         assertTrue(labels.contains("@Composable"))
-        assertEquals(12, labels.size)
+        assertTrue(labels.contains("LazyColumn"))
+        assertTrue(labels.contains("AnimatedVisibility"))
+        assertTrue(labels.contains("Icons"))
+        assertTrue(labels.contains("mutableStateOf"))
+        assertTrue(labels.size > 100)
     }
 }
