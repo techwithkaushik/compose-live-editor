@@ -23,6 +23,7 @@ androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 sora-editor-bom = { module = "io.github.rosemoe:editor-bom", version.ref = "soraEditor" }
 sora-editor = { module = "io.github.rosemoe:editor" }
+sora-language-textmate = { module = "io.github.rosemoe:language-textmate" }
 
 junit = { module = "junit:junit", version = "4.13.2" }
 
