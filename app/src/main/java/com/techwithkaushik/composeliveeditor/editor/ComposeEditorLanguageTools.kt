@@ -13,11 +13,7 @@ data class EditorDiagnostic(
     val ruleId: String,
 )
 
-data class CompletionItem(
-    val label: String,
-    val insertText: String,
-    val detail: String,
-)
+data class CompletionItem(val label: String, val insertText: String, val detail: String)
 
 object ComposeEditorLanguageTools {
     private val importPattern = Regex("(?m)^\\s*import\\s+([\\w.]+)(?:\\s+as\\s+\\w+)?\\s*$")
@@ -42,41 +38,22 @@ object ComposeEditorLanguageTools {
         "HorizontalDivider" to "androidx.compose.material3.HorizontalDivider",
     )
     private val componentUsagePattern = Regex("\\b([A-Z][A-Za-z0-9_]*)\\s*(?=\\(|\\{)")
-    private val componentNames = setOf(
-        "Column", "Row", "Box", "Text", "Button", "OutlinedButton",
-        "TextButton", "Card", "Surface", "Spacer", "Divider",
-        "Checkbox", "Switch", "CircularProgressIndicator", "LinearProgressIndicator",
-    )
 
     fun analyze(source: String): List<EditorDiagnostic> {
         if (source.isEmpty()) return emptyList()
         val diagnostics = ArrayList<EditorDiagnostic>()
         val parsed = ComposeSourceEngine.parse(source)
         if (parsed is PreviewParseResult.Failure) {
-            diagnostics += EditorDiagnostic(
-                parsed.diagnostic.message,
-                parsed.diagnostic.line,
-                parsed.diagnostic.column,
-                DiagnosticSeverity.ERROR,
-                "compose-preview",
-            )
+            diagnostics += EditorDiagnostic(parsed.diagnostic.message, parsed.diagnostic.line, parsed.diagnostic.column, DiagnosticSeverity.ERROR, "compose-preview")
         }
-        trailingWhitespace.findAll(source).forEach { match ->
-            val line = source.substring(0, match.range.first).count { it == '\n' } + 1
-            diagnostics += EditorDiagnostic("Trailing whitespace", line, match.range.first - source.lastIndexOf('\n', match.range.first - 1), DiagnosticSeverity.WARNING, "style-trailing-whitespace")
-        }
-        todoPattern.findAll(source).forEach { match ->
-            val line = source.substring(0, match.range.first).count { it == '\n' } + 1
-            val column = match.range.first - source.lastIndexOf('\n', match.range.first - 1)
-            diagnostics += EditorDiagnostic("${match.value} marker should be resolved before release", line, column, DiagnosticSeverity.INFO, "todo-marker")
-        }
+
         componentUsagePattern.findAll(source).forEach { match ->
             val name = match.groupValues[1]
             val qualifiedName = componentImports[name] ?: return@forEach
-            if (Regex("(?m)^\\\\s*import\\\\s+$qualifiedName\\\\s*$").containsMatchIn(source)) return@forEach
-            if (name in source.substringAfterLast("fun ")) return@forEach
-            val line = source.substring(0, match.range.first).count { it == '\\n' } + 1
-            val column = match.range.first - source.lastIndexOf('\\n', match.range.first - 1) + 1
+            if (importPattern.findAll(source).any { it.groupValues[1] == qualifiedName }) return@forEach
+            val prefix = source.substring(0, match.range.first)
+            val line = prefix.count { it == '\n' } + 1
+            val column = match.range.first - source.lastIndexOf('\n', match.range.first - 1)
             diagnostics += EditorDiagnostic(
                 "Unresolved reference: $name. Import $qualifiedName",
                 line,
@@ -84,6 +61,17 @@ object ComposeEditorLanguageTools {
                 DiagnosticSeverity.ERROR,
                 "missing-import:$qualifiedName",
             )
+        }
+
+        trailingWhitespace.findAll(source).forEach { match ->
+            val line = source.substring(0, match.range.first).count { it == '\n' } + 1
+            val column = match.range.first - source.lastIndexOf('\n', match.range.first - 1)
+            diagnostics += EditorDiagnostic("Trailing whitespace", line, column, DiagnosticSeverity.WARNING, "style-trailing-whitespace")
+        }
+        todoPattern.findAll(source).forEach { match ->
+            val line = source.substring(0, match.range.first).count { it == '\n' } + 1
+            val column = match.range.first - source.lastIndexOf('\n', match.range.first - 1)
+            diagnostics += EditorDiagnostic("\${match.value} marker should be resolved before release", line, column, DiagnosticSeverity.INFO, "todo-marker")
         }
         importPattern.findAll(source).forEach { match ->
             val importedName = match.groupValues[1].substringAfterLast('.')
@@ -94,12 +82,10 @@ object ComposeEditorLanguageTools {
             }
         }
         composablePattern.findAll(source).forEach { match ->
-            val name = match.groupValues[1]
             if (source.substring(match.range.last + 1).contains("@Composable")) {
                 val line = source.substring(0, match.range.first).count { it == '\n' } + 1
                 diagnostics += EditorDiagnostic("Only one preview entry point is supported; found additional composable declarations", line, 1, DiagnosticSeverity.WARNING, "multiple-entry-points")
             }
-            if (name.isBlank()) diagnostics += EditorDiagnostic("Composable name is required", 1, 1, DiagnosticSeverity.ERROR, "missing-entry-name")
         }
         return diagnostics.distinct().sortedWith(compareBy<EditorDiagnostic>({ it.line }, { it.column }, { it.severity.ordinal }))
     }
@@ -121,6 +107,4 @@ object ComposeEditorLanguageTools {
             CompletionItem("@Composable", "@Composable\nfun Screen() {\n    Column {\n        Text(\"Hello\")\n    }\n}", "Composable entry point"),
         ).filter { query.isEmpty() || it.label.startsWith(query, ignoreCase = true) || it.detail.split(Regex("\\s+")).any { word -> word.startsWith(query, ignoreCase = true) } }
     }
-
-    fun supportedComponents(): Set<String> = componentNames
 }
