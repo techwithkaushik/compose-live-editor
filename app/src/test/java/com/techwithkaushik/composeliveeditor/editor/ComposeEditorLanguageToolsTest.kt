@@ -50,7 +50,7 @@ class ComposeEditorLanguageToolsTest {
     @Test
     fun doesNotReportComposeNamesInsideCommentsOrStringLiterals() {
         val diagnostics = ComposeEditorLanguageTools.analyze(
-            "@Composable fun Screen() { Text(\"Button( Column {\") } // Modifier.padding()",
+            "import androidx.compose.runtime.Composable\nimport androidx.compose.material3.Text\n@Composable fun Screen() { Text(\"Button( Column {\") } // Modifier.padding()",
         )
         assertTrue(diagnostics.none { it.ruleId.startsWith("missing-import:") })
     }
