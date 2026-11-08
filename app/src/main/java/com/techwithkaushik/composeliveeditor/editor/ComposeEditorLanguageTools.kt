@@ -60,7 +60,7 @@ object ComposeEditorLanguageTools {
     private fun maskCommentsAndStrings(source: String): String {
         val nonCode = Regex("(?s)/\\*.*?\\*/|//[^\\n]*|\\\"\\\"\\\".*?\\\"\\\"\\\"|\\\"(?:\\\\.|[^\\\"\\\\])*\\\"|'(?:\\\\.|[^'\\\\])*'")
         return nonCode.replace(source) { match ->
-            match.value.map { character -> if (character == '\\n') '\\n' else ' ' }.joinToString("")
+            match.value.map { character -> if (character == '\n') '\n' else ' ' }.joinToString("")
         }
     }
 
