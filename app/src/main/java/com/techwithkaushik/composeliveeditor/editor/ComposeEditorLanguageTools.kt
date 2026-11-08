@@ -44,7 +44,8 @@ object ComposeEditorLanguageTools {
     }
     private val symbolsByName = composeSymbols.groupBy({ it.first }, { it.second })
     private val completionCatalog = composeSymbols.distinctBy { it.first }.sortedBy { it.first }
-        .map { (name, path) -> CompletionItem(name, completionSnippet(name), path) }
+        .map { (name, path) -> CompletionItem(name, completionSnippet(name), path) } +
+        CompletionItem("@Composable", "@Composable", "androidx.compose.runtime.Composable")
 
     private fun completionSnippet(name: String): String = when (name) {
         "Column", "Row", "Box" -> "$name {\n    \n}"
@@ -56,6 +57,13 @@ object ComposeEditorLanguageTools {
         else -> name
     }
 
+    private fun maskCommentsAndStrings(source: String): String {
+        val nonCode = Regex("(?s)/\\*.*?\\*/|//[^\\n]*|\\\"\\\"\\\".*?\\\"\\\"\\\"|\\\"(?:\\\\.|[^\\\"\\\\])*\\\"|'(?:\\\\.|[^'\\\\])*'")
+        return nonCode.replace(source) { match ->
+            match.value.map { character -> if (character == '\\n') '\\n' else ' ' }.joinToString("")
+        }
+    }
+
     fun analyze(source: String): List<EditorDiagnostic> {
         if (source.isEmpty()) return emptyList()
         val diagnostics = ArrayList<EditorDiagnostic>()
@@ -65,7 +73,7 @@ object ComposeEditorLanguageTools {
         }
         val imports = importPattern.findAll(source).map { it.groupValues[1] }.toSet()
         val importedNames = imports.map { it.substringAfterLast('.') }.toSet()
-        componentUsagePattern.findAll(source).forEach { match ->
+        componentUsagePattern.findAll(maskCommentsAndStrings(source)).forEach { match ->
             val name = match.groupValues[1]
             val candidates = symbolsByName[name] ?: return@forEach
             if (name in importedNames || candidates.any { it in imports }) return@forEach
