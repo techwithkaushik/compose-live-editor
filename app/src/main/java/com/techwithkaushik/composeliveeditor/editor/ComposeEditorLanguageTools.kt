@@ -24,6 +24,24 @@ object ComposeEditorLanguageTools {
     private val composablePattern = Regex("@Composable\\s+fun\\s+([A-Za-z_][A-Za-z0-9_]*)")
     private val trailingWhitespace = Regex("[ \\t]+$", RegexOption.MULTILINE)
     private val todoPattern = Regex("\\b(TODO|FIXME)\\b")
+    private val componentImports = mapOf(
+        "Column" to "androidx.compose.foundation.layout.Column",
+        "Row" to "androidx.compose.foundation.layout.Row",
+        "Box" to "androidx.compose.foundation.layout.Box",
+        "Spacer" to "androidx.compose.foundation.layout.Spacer",
+        "Text" to "androidx.compose.material3.Text",
+        "Button" to "androidx.compose.material3.Button",
+        "OutlinedButton" to "androidx.compose.material3.OutlinedButton",
+        "TextButton" to "androidx.compose.material3.TextButton",
+        "Card" to "androidx.compose.material3.Card",
+        "Surface" to "androidx.compose.material3.Surface",
+        "Checkbox" to "androidx.compose.material3.Checkbox",
+        "Switch" to "androidx.compose.material3.Switch",
+        "CircularProgressIndicator" to "androidx.compose.material3.CircularProgressIndicator",
+        "LinearProgressIndicator" to "androidx.compose.material3.LinearProgressIndicator",
+        "HorizontalDivider" to "androidx.compose.material3.HorizontalDivider",
+    )
+    private val componentUsagePattern = Regex("\\b([A-Z][A-Za-z0-9_]*)\\s*(?=\\(|\\{)")
     private val componentNames = setOf(
         "Column", "Row", "Box", "Text", "Button", "OutlinedButton",
         "TextButton", "Card", "Surface", "Spacer", "Divider",
@@ -51,6 +69,21 @@ object ComposeEditorLanguageTools {
             val line = source.substring(0, match.range.first).count { it == '\n' } + 1
             val column = match.range.first - source.lastIndexOf('\n', match.range.first - 1)
             diagnostics += EditorDiagnostic("${match.value} marker should be resolved before release", line, column, DiagnosticSeverity.INFO, "todo-marker")
+        }
+        componentUsagePattern.findAll(source).forEach { match ->
+            val name = match.groupValues[1]
+            val qualifiedName = componentImports[name] ?: return@forEach
+            if (Regex("(?m)^\\\\s*import\\\\s+$qualifiedName\\\\s*$").containsMatchIn(source)) return@forEach
+            if (name in source.substringAfterLast("fun ")) return@forEach
+            val line = source.substring(0, match.range.first).count { it == '\\n' } + 1
+            val column = match.range.first - source.lastIndexOf('\\n', match.range.first - 1) + 1
+            diagnostics += EditorDiagnostic(
+                "Unresolved reference: $name. Import $qualifiedName",
+                line,
+                column,
+                DiagnosticSeverity.ERROR,
+                "missing-import:$qualifiedName",
+            )
         }
         importPattern.findAll(source).forEach { match ->
             val importedName = match.groupValues[1].substringAfterLast('.')
