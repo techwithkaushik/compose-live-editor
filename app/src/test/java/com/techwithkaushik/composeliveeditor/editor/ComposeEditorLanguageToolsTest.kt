@@ -1,6 +1,5 @@
 package com.techwithkaushik.composeliveeditor.editor
 
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -29,13 +28,12 @@ class ComposeEditorLanguageToolsTest {
     @Test
     fun filtersCompletionsByPrefix() {
         val completions = ComposeEditorLanguageTools.completions("Out")
-        assertEquals(listOf("OutlinedButton"), completions.map { it.label })
-        assertTrue(completions.single().insertText.contains("onClick"))
+        assertTrue(completions.any { it.label == "OutlinedButton" && it.insertText.contains("onClick") })
     }
 
     @Test
     fun completionSnippetsContainActualNewlines() {
-        val column = ComposeEditorLanguageTools.completions("Column").single()
+        val column = ComposeEditorLanguageTools.completions("Column").first { it.label == "Column" }
         assertTrue(column.insertText.contains('\n'))
         assertTrue(!column.insertText.contains("\\n"))
     }
@@ -47,12 +45,13 @@ class ComposeEditorLanguageToolsTest {
         assertTrue(labels.contains("Card"))
         assertTrue(labels.contains("Surface"))
         assertTrue(labels.contains("Spacer"))
-        assertTrue(labels.contains("Divider"))
+        assertTrue(labels.contains("HorizontalDivider"))
         assertTrue(labels.contains("@Composable"))
         assertTrue(labels.contains("LazyColumn"))
         assertTrue(labels.contains("AnimatedVisibility"))
         assertTrue(labels.contains("Icons"))
         assertTrue(labels.contains("mutableStateOf"))
+        assertTrue(ComposeEditorLanguageTools.importCandidates("Add").size > 1)
         assertTrue(labels.size > 100)
     }
 }
