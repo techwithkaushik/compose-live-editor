@@ -88,7 +88,7 @@ private fun buildDiagnostics(
                 when (diagnostic.severity) {
                     DiagnosticSeverity.ERROR -> DiagnosticRegion.SEVERITY_ERROR
                     DiagnosticSeverity.WARNING -> DiagnosticRegion.SEVERITY_WARNING
-                    DiagnosticSeverity.INFO -> DiagnosticRegion.SEVERITY_INFO
+                    DiagnosticSeverity.INFO -> DiagnosticRegion.SEVERITY_TYPO
                 },
                 diagnostic.ruleId.hashCode().toLong(),
                 DiagnosticDetail(diagnostic.message, quickfixes = quickfixes),
