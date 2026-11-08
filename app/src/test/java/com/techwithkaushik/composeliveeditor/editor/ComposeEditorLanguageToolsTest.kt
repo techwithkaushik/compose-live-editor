@@ -39,6 +39,23 @@ class ComposeEditorLanguageToolsTest {
     }
 
     @Test
+    fun offersImportsForComposeModifierAndTypeSymbols() {
+        val diagnostics = ComposeEditorLanguageTools.analyze(
+            "@Composable fun Screen() { Text(\"Hi\", modifier = Modifier.padding(8.dp)) }",
+        )
+        assertTrue(diagnostics.any { it.ruleId == "missing-import:androidx.compose.ui.Modifier" })
+        assertTrue(diagnostics.any { it.ruleId == "missing-import:androidx.compose.ui.unit.dp" })
+    }
+
+    @Test
+    fun doesNotReportComposeNamesInsideCommentsOrStringLiterals() {
+        val diagnostics = ComposeEditorLanguageTools.analyze(
+            "@Composable fun Screen() { Text(\"Button( Column {\") } // Modifier.padding()",
+        )
+        assertTrue(diagnostics.none { it.ruleId.startsWith("missing-import:") })
+    }
+
+    @Test
     fun exposesExtendedComposeCompletionCatalog() {
         val labels = ComposeEditorLanguageTools.completions("").map { it.label }
         assertTrue(labels.contains("OutlinedButton"))
