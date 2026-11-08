@@ -12,7 +12,7 @@ object ComposeEditorLanguageTools {
     private val composablePattern = Regex("@Composable\\s+fun\\s+([A-Za-z_][A-Za-z0-9_]*)")
     private val trailingWhitespace = Regex("[ \\t]+$", RegexOption.MULTILINE)
     private val todoPattern = Regex("\\b(TODO|FIXME)\\b")
-    private val componentUsagePattern = Regex("\\b([A-Z][A-Za-z0-9_]*)\\s*(?=\\(|\\{)")
+    private val componentUsagePattern = Regex("\\b([A-Z][A-Za-z0-9_]*)\\b")
 
     private val composePackages = listOf(
         "androidx.compose.foundation.layout" to """Column Row Box Spacer Arrangement BoxScope ColumnScope RowScope WindowInsets WindowInsetsSides PaddingValues fillMaxSize fillMaxWidth fillMaxHeight width height size requiredWidth requiredHeight requiredSize widthIn heightIn sizeIn defaultMinSize padding offset absoluteOffset wrapContentSize wrapContentWidth wrapContentHeight weight horizontalScroll verticalScroll FlowRow FlowColumn""",
@@ -77,6 +77,10 @@ object ComposeEditorLanguageTools {
             val name = match.groupValues[1]
             val candidates = symbolsByName[name] ?: return@forEach
             if (name in importedNames || candidates.any { it in imports }) return@forEach
+            val lineStart = source.lastIndexOf('\n', match.range.first - 1) + 1
+            val linePrefix = source.substring(lineStart, match.range.first)
+            if (Regex("\\b(fun|class|interface|object|typealias)\\s+$name\\s*$").containsMatchIn(linePrefix)) return@forEach
+            if (linePrefix.trimStart().startsWith("import ")) return@forEach
             val before = source.substring(0, match.range.first)
             val line = before.count { it == '\n' } + 1
             val column = match.range.first - source.lastIndexOf('\n', match.range.first - 1)
