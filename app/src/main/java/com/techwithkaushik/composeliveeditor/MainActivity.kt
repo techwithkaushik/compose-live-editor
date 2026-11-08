@@ -129,6 +129,7 @@ private fun ComposeEditorApp() {
                         if (showPreview) previewResult = ComposeSourceEngine.parse(updated)
                     },
                     diagnostics = diagnostics,
+                    darkTheme = darkTheme,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
