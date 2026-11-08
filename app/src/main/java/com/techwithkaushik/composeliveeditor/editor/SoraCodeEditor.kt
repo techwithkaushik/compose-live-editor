@@ -165,23 +165,47 @@ private fun buildDiagnostics(
     }
 }
 
-/** Inserts into the editor's current buffer, never a stale Content captured by a diagnostic. */
+/**
+ * Adds a missing import in lexical order without replacing existing source lines.
+ * Existing package declarations and blank-line separation are preserved.
+ */
 private fun insertImport(editor: CodeEditor, qualifiedName: String) {
     val content = editor.text
     val importLine = "import $qualifiedName"
-    val currentSource = content.toString()
-    if (Regex("(?m)^\\s*${Regex.escape(importLine)}\\s*$").containsMatchIn(currentSource)) return
+    val source = content.toString()
+    val lines = source.split('\n')
 
-    val lines = currentSource.lines()
-    val packageLine = lines.indexOfFirst { it.trimStart().startsWith("package ") }
-    val lastImportLine = lines.indexOfLast { it.trimStart().startsWith("import ") }
-    val anchorLine = if (lastImportLine >= 0) lastImportLine else packageLine
+    if (lines.any { it.trim() == importLine }) return
 
-    if (anchorLine < 0) {
-        content.insert(0, 0, "$importLine\\n")
+    val importEntries = lines.mapIndexedNotNull { index, line ->
+        val trimmed = line.trim()
+        if (trimmed.startsWith("import ")) index to trimmed else null
+    }
+
+    val firstGreaterImport = importEntries.firstOrNull { (_, existing) ->
+        existing.substringAfter("import ") > qualifiedName
+    }
+
+    if (firstGreaterImport != null) {
+        // Insert at the start of the first lexically greater import.
+        content.insert(firstGreaterImport.first, 0, "$importLine\n")
         return
     }
 
-    val anchorColumn = content.getColumnCount(anchorLine)
-    content.insert(anchorLine, anchorColumn, "\\n$importLine")
+    val lastImportIndex = importEntries.lastOrNull()?.first
+    if (lastImportIndex != null) {
+        // Insert after the last import, before the line separator already in the buffer.
+        val column = content.getColumnCount(lastImportIndex)
+        content.insert(lastImportIndex, column, "\n$importLine")
+        return
+    }
+
+    val packageIndex = lines.indexOfFirst { it.trimStart().startsWith("package ") }
+    if (packageIndex >= 0) {
+        val column = content.getColumnCount(packageIndex)
+        content.insert(packageIndex, column, "\n\n$importLine")
+    } else {
+        // No package/import section: add the import at the beginning, preserving all code.
+        content.insert(0, 0, "$importLine\n")
+    }
 }
