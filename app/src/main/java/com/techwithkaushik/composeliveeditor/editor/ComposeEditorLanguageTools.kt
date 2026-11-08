@@ -44,7 +44,17 @@ object ComposeEditorLanguageTools {
     }
     private val symbolsByName = composeSymbols.groupBy({ it.first }, { it.second })
     private val completionCatalog = composeSymbols.distinctBy { it.first }.sortedBy { it.first }
-        .map { (name, path) -> CompletionItem(name, name, path) }
+        .map { (name, path) -> CompletionItem(name, completionSnippet(name), path) }
+
+    private fun completionSnippet(name: String): String = when (name) {
+        "Column", "Row", "Box" -> "$name {\\n    \\n}"
+        "Button", "OutlinedButton", "TextButton" -> "$name(onClick = { }) {\\n    Text(\\\"Action\\\")\\n}"
+        "Card", "Surface" -> "$name {\\n    Text(\\\"Content\\\")\\n}"
+        "Text" -> "Text(\\\"Hello\\\")"
+        "Spacer" -> "Spacer(modifier = Modifier.height(8.dp))"
+        "HorizontalDivider" -> "HorizontalDivider()"
+        else -> name
+    }
 
     fun analyze(source: String): List<EditorDiagnostic> {
         if (source.isEmpty()) return emptyList()
@@ -96,7 +106,7 @@ object ComposeEditorLanguageTools {
 
     fun completions(prefix: String): List<CompletionItem> {
         val query = prefix.trim()
-        if (query.isEmpty()) return emptyList()
+        if (query.isEmpty()) return completionCatalog
         return completionCatalog.filter { it.label.startsWith(query, ignoreCase = true) }
     }
 
