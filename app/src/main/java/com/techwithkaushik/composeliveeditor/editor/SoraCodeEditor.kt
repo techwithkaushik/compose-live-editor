@@ -62,11 +62,10 @@ fun SoraCodeEditor(
         },
         update = { editor ->
             if (editor.text.toString() != source) editor.setText(source)
-            val desiredScheme = KotlinTextMateSupport.colorScheme(currentDarkTheme.value)
             if (editor.colorScheme !is TextMateColorScheme ||
                 KotlinTextMateSupport.isDarkTheme != currentDarkTheme.value
             ) {
-                editor.colorScheme = desiredScheme
+                editor.colorScheme = KotlinTextMateSupport.colorScheme(currentDarkTheme.value)
             }
             editor.setDiagnostics(buildDiagnostics(editor, currentDiagnostics.value))
         },
