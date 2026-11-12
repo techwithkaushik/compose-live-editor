@@ -91,6 +91,7 @@ private fun ComposeEditorApp() {
     var source by rememberSaveable { mutableStateOf(STARTER_SOURCE) }
     var showPreview by rememberSaveable { mutableStateOf(false) }
     var previewResult by remember { mutableStateOf<PreviewParseResult?>(null) }
+    var selectedPreviewName by rememberSaveable { mutableStateOf<String?>(null) }
     var darkTheme by rememberSaveable { mutableStateOf(false) }
     val diagnostics = remember(source) { ComposeEditorLanguageTools.analyze(source) }
     BackHandler(enabled = showPreview) { showPreview = false }
@@ -108,7 +109,7 @@ private fun ComposeEditorApp() {
                     }
                     Button(
                         onClick = {
-                            previewResult = ComposeSourceEngine.parse(source)
+                            previewResult = ComposeSourceEngine.parse(source, selectedPreviewName)
                             showPreview = !showPreview
                         },
                         modifier = Modifier.padding(end = 8.dp),
@@ -126,7 +127,7 @@ private fun ComposeEditorApp() {
                     source = source,
                     onSourceChange = { updated ->
                         source = updated
-                        if (showPreview) previewResult = ComposeSourceEngine.parse(updated)
+                        if (showPreview) previewResult = ComposeSourceEngine.parse(updated, selectedPreviewName)
                     },
                     diagnostics = diagnostics,
                     darkTheme = darkTheme,
@@ -136,6 +137,10 @@ private fun ComposeEditorApp() {
             if (showPreview) FloatingPreviewWindow(
                 result = previewResult,
                 onClose = { showPreview = false },
+                onSelectPreview = { name ->
+                    selectedPreviewName = name
+                    previewResult = ComposeSourceEngine.parse(source, name)
+                },
             )
         }
     }
@@ -143,7 +148,7 @@ private fun ComposeEditorApp() {
 }
 
 @Composable
-private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Unit) {
+private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Unit, onSelectPreview: (String) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val availableWidth = maxWidth.value
         val availableHeight = maxHeight.value
@@ -173,8 +178,9 @@ private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Un
                         .padding(start = 10.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    val success = result as? PreviewParseResult.Success
                     Text(
-                        (result as? PreviewParseResult.Success)?.entryPoint?.let { it + "()" } ?: "Preview",
+                        success?.entryPoint?.let { it + "()" } ?: "Preview",
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxSize()
@@ -188,6 +194,12 @@ private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Un
                         style = MaterialTheme.typography.labelLarge,
                         maxLines = 1,
                     )
+                    if (success != null && success.previewEntries.size > 1) {
+                        val current = success.previewEntries.indexOf(success.entryPoint).coerceAtLeast(0)
+                        androidx.compose.material3.TextButton(
+                            onClick = { onSelectPreview(success.previewEntries[(current + 1) % success.previewEntries.size]) },
+                        ) { Text("${current + 1}/${success.previewEntries.size} ›") }
+                    }
                     Box(
                         Modifier
                             .size(28.dp)
