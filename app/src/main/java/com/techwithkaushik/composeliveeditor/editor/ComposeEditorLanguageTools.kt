@@ -8,7 +8,7 @@ data class EditorDiagnostic(val message: String, val line: Int, val column: Int,
 data class CompletionItem(val label: String, val insertText: String, val detail: String)
 
 object ComposeEditorLanguageTools {
-    private val importPattern = Regex("(?m)^\\s*import\\s+([\\w.]+)(?:\\s+as\\s+\\w+)?\\s*$")
+    private val importPattern = Regex("(?m)^\\s*import\\s+([\\w.]+(?:\\.\\*)?)(?:\\s+as\\s+\\w+)?\\s*$")
     private val trailingWhitespace = Regex("[ \\t]+$", RegexOption.MULTILINE)
     private val todoPattern = Regex("\\b(TODO|FIXME)\\b")
     private val componentUsagePattern = Regex("\\b([A-Za-z_][A-Za-z0-9_]*)\\b")
@@ -78,11 +78,11 @@ object ComposeEditorLanguageTools {
             diagnostics += EditorDiagnostic(parsed.diagnostic.message, parsed.diagnostic.line, parsed.diagnostic.column, DiagnosticSeverity.ERROR, "compose-preview")
         }
         val imports = importPattern.findAll(source).map { it.groupValues[1] }.toSet()
-        val importedNames = imports.map { it.substringAfterLast('.') }.toSet()
+        val importedNames = imports.filterNot { it.endsWith(".*") }.map { it.substringAfterLast('.') }.toSet()\n        val wildcardImportPrefixes = imports.filter { it.endsWith(".*") }.map { it.removeSuffix("*") }
         componentUsagePattern.findAll(maskCommentsAndStrings(source)).forEach { match ->
             val name = match.groupValues[1]
             val candidates = symbolsByName[name] ?: return@forEach
-            if (name in importedNames || candidates.any { it in imports }) return@forEach
+            if (name in importedNames || candidates.any { candidate ->\n                    candidate in imports || wildcardImportPrefixes.any(candidate::startsWith)\n                }) return@forEach
             val lineStart = source.lastIndexOf('\n', match.range.first - 1) + 1
             val linePrefix = source.substring(lineStart, match.range.first)
             if (Regex("\\b(fun|class|interface|object|typealias)\\s+$name\\s*$").containsMatchIn(linePrefix)) return@forEach
