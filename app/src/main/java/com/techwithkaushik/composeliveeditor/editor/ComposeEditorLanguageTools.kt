@@ -9,7 +9,6 @@ data class CompletionItem(val label: String, val insertText: String, val detail:
 
 object ComposeEditorLanguageTools {
     private val importPattern = Regex("(?m)^\\s*import\\s+([\\w.]+)(?:\\s+as\\s+\\w+)?\\s*$")
-    private val composablePattern = Regex("@Composable\\s+fun\\s+([A-Za-z_][A-Za-z0-9_]*)")
     private val trailingWhitespace = Regex("[ \\t]+$", RegexOption.MULTILINE)
     private val todoPattern = Regex("\\b(TODO|FIXME)\\b")
     private val componentUsagePattern = Regex("\\b([A-Za-z_][A-Za-z0-9_]*)\\b")
