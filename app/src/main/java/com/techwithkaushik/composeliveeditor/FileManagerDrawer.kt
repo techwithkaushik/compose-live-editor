@@ -41,6 +41,7 @@ private enum class FileDialogMode { NEW_FILE, NEW_FOLDER, RENAME, DELETE }
 internal fun FileManagerDrawer(
     rootDirectory: File,
     onOpenFile: (File, String) -> Unit,
+    onFilePathChanged: (File, File?) -> Unit,
     onClose: () -> Unit,
 ) {
     var currentDirectory by remember(rootDirectory) { mutableStateOf(rootDirectory) }
@@ -208,10 +209,12 @@ internal fun FileManagerDrawer(
                                 val destination = File(target.parentFile, inputName)
                                 check(!destination.exists()) { "An item with this name already exists" }
                                 check(target.renameTo(destination)) { "Unable to rename item" }
+                                onFilePathChanged(target, destination)
                             }
                             FileDialogMode.DELETE -> {
                                 check(target != null && isInsideRoot(target) && target != rootDirectory) { "Invalid file selection" }
                                 check(target.deleteRecursively()) { "Unable to delete item" }
+                                onFilePathChanged(target, null)
                             }
                         }
                     }.onSuccess {
