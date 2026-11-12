@@ -26,7 +26,7 @@ sealed interface PreviewAction {
 data class PreviewState(val name: String, val initialValue: Int)
 data class SourceDiagnostic(val message: String, val line: Int, val column: Int)
 sealed interface PreviewParseResult {
-    data class Success(val entryPoint: String, val content: PreviewNode, val states: List<PreviewState>) : PreviewParseResult
+    data class Success(val entryPoint: String, val content: PreviewNode, val states: List<PreviewState>, val previewEntries: List<String> = listOf(entryPoint)) : PreviewParseResult
     data class Failure(val diagnostic: SourceDiagnostic) : PreviewParseResult
 }
 
@@ -39,17 +39,167 @@ object ComposeSourceEngine {
     private const val MAX_ACTIONS = 32
     private val references = STATE_REFERENCE_PATTERN
 
-    fun parse(source: String): PreviewParseResult {
+    fun parse(source: String, previewName: String? = null): PreviewParseResult {
         if (source.length > MAX_SOURCE_LENGTH) {
             return PreviewParseResult.Failure(SourceDiagnostic("Source exceeds the 64 KiB preview limit", 1, 1))
         }
         return try {
-            Parser(Lexer(source).tokenize()).parse()
+            val selection = selectPreviewSource(source, previewName)
+            val parsed = Parser(Lexer(selection.source).tokenize()).parse()
+            if (parsed is PreviewParseResult.Success) parsed.copy(entryPoint = selection.selectedName, previewEntries = selection.previewNames) else parsed
         } catch (failure: ParseFailure) {
             PreviewParseResult.Failure(failure.diagnostic)
         } catch (failure: Exception) {
             PreviewParseResult.Failure(SourceDiagnostic("Unable to parse source: ${failure.message ?: failure.javaClass.simpleName}", 1, 1))
         }
+    }
+
+
+    private data class PreviewSelection(val source: String, val selectedName: String, val previewNames: List<String>)
+    private data class FunctionDeclaration(val name: String, val body: String, val composable: Boolean, val preview: Boolean)
+
+    /**
+     * Selects the @Preview composable and safely inlines calls to other declared
+     * @Composable functions. Function arguments are intentionally not evaluated:
+     * preview callbacks such as onLoginClick = { _, _ -> } are inert in this interpreter.
+     */
+    private fun selectPreviewSource(source: String, requestedName: String?): PreviewSelection {
+        val tokens = Lexer(source).tokenize()
+        val declarations = ArrayList<FunctionDeclaration>()
+        var index = 0
+        var pendingComposable = false
+        var pendingPreview = false
+        while (index < tokens.size - 1) {
+            val token = tokens[index]
+            if (token.text == "@") {
+                index++
+                val annotation = tokens.getOrNull(index)?.text.orEmpty()
+                if (annotation == "Composable") pendingComposable = true
+                if (annotation == "Preview") pendingPreview = true
+                index++
+                if (tokens.getOrNull(index)?.text == "(") {
+                    index = matchingToken(tokens, index, "(", ")") + 1
+                }
+                continue
+            }
+            if (token.text == "fun") {
+                val name = tokens.getOrNull(index + 1)?.text
+                if (name == null) break
+                var cursor = index + 2
+                if (tokens.getOrNull(cursor)?.text == "<") {
+                    while (cursor < tokens.size && tokens[cursor].text != ">") cursor++
+                    cursor++
+                }
+                if (tokens.getOrNull(cursor)?.text == "(") {
+                    cursor = matchingToken(tokens, cursor, "(", ")") + 1
+                }
+                while (cursor < tokens.size && tokens[cursor].text != "{" && tokens[cursor].kind != Kind.EOF) cursor++
+                if (cursor >= tokens.size || tokens[cursor].text != "{") {
+                    pendingComposable = false
+                    pendingPreview = false
+                    index++
+                    continue
+                }
+                val close = matchingToken(tokens, cursor, "{", "}")
+                val body = source.substring(tokens[cursor].offset + 1, tokens[close].offset)
+                declarations += FunctionDeclaration(name, body, pendingComposable, pendingPreview)
+                pendingComposable = false
+                pendingPreview = false
+                index = close + 1
+                continue
+            }
+            // Ignore package/import statements and unrelated top-level tokens.
+            if (token.text !in setOf("package", "import") && token.kind == Kind.IDENTIFIER) {
+                pendingComposable = false
+                pendingPreview = false
+            }
+            index++
+        }
+
+        val composables = declarations.filter { it.composable }
+        val previews = composables.filter { it.preview }
+        val names = previews.map { it.name }
+        val selected = when {
+            previews.isNotEmpty() -> previews.firstOrNull { it.name == requestedName } ?: previews.first()
+            composables.size == 1 -> composables.single()
+            composables.isEmpty() -> null
+            else -> throw ParseFailure(SourceDiagnostic("Add @Preview(showBackground = true) to the composable you want to display", 1, 1))
+        } ?: return PreviewSelection(source, "", emptyList())
+
+        val helpers = composables.associateBy { it.name }
+        val expandedBody = expandComposableCalls(selected.body, helpers, linkedSetOf(selected.name), 0)
+        return PreviewSelection(
+            source = "@Composable fun ${selected.name}() { $expandedBody }",
+            selectedName = selected.name,
+            previewNames = names.ifEmpty { listOf(selected.name) },
+        )
+    }
+
+    private fun expandComposableCalls(
+        body: String,
+        helpers: Map<String, FunctionDeclaration>,
+        stack: MutableSet<String>,
+        depth: Int,
+    ): String {
+        if (depth > MAX_NESTING) throw ParseFailure(SourceDiagnostic("Composable helper expansion exceeds $MAX_NESTING levels", 1, 1))
+        val tokens = Lexer(body).tokenize()
+        val output = StringBuilder()
+        var sourceCursor = 0
+        var index = 0
+        while (index < tokens.size - 1) {
+            val token = tokens[index]
+            if (token.kind == Kind.IDENTIFIER && token.text == "MaterialTheme") {
+                var open = index + 1
+                if (tokens.getOrNull(open)?.text == "(") open = matchingToken(tokens, open, "(", ")") + 1
+                if (tokens.getOrNull(open)?.text == "{") {
+                    val close = matchingToken(tokens, open, "{", "}")
+                    output.append(body.substring(sourceCursor, token.offset))
+                    val inner = body.substring(tokens[open].offset + 1, tokens[close].offset)
+                    output.append(expandComposableCalls(inner, helpers, stack, depth + 1))
+                    sourceCursor = tokenEnd(body, tokens[close])
+                    index = close + 1
+                    continue
+                }
+            }
+            val helper = helpers[token.text]
+            if (token.kind == Kind.IDENTIFIER && helper != null && helper.name !in stack &&
+                tokens.getOrNull(index + 1)?.text == "("
+            ) {
+                val close = matchingToken(tokens, index + 1, "(", ")")
+                output.append(body.substring(sourceCursor, token.offset))
+                stack.add(helper.name)
+                output.append(expandComposableCalls(helper.body, helpers, stack, depth + 1))
+                stack.remove(helper.name)
+                sourceCursor = tokenEnd(body, tokens[close])
+                index = close + 1
+                continue
+            }
+            index++
+        }
+        output.append(body.substring(sourceCursor))
+        return output.toString()
+    }
+
+    private fun tokenEnd(source: String, token: Token): Int {
+        val next = source.indexOfFirstFrom(token.offset + token.text.length) { false }
+        return if (next < 0) source.length else next
+    }
+
+    private fun String.indexOfFirstFrom(start: Int, predicate: (Char) -> Boolean): Int {
+        for (i in start until length) if (predicate(this[i])) return i
+        return -1
+    }
+
+    private fun matchingToken(tokens: List<Token>, start: Int, open: String, close: String): Int {
+        var depth = 0
+        for (i in start until tokens.size) {
+            if (tokens[i].text == open) depth++
+            if (tokens[i].text == close) {
+                depth--
+                if (depth == 0) return i
+            }
+        }
+        throw ParseFailure(SourceDiagnostic("Expected '$close'", tokens.getOrElse(start) { tokens.last() }.line, tokens.getOrElse(start) { tokens.last() }.column))
     }
 
     private data class Token(val kind: Kind, val text: String, val value: String, val offset: Int, val line: Int, val column: Int)
