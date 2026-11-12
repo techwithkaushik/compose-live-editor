@@ -152,10 +152,8 @@ private fun ComposeEditorApp() {
                 if (!starterFile.exists()) starterFile.writeText(STARTER_SOURCE)
                 starterFile
             }
-        }.onSuccess { result ->
-            result.getOrNull()?.let { starterFile ->
-                if (activeFile == null && source == STARTER_SOURCE) activeFile = starterFile
-            }
+        }.onSuccess { starterFile ->
+            if (activeFile == null && source == STARTER_SOURCE) activeFile = starterFile
         }
     }
 
