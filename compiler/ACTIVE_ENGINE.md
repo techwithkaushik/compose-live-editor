@@ -20,9 +20,9 @@ The previous ART compiler spike cannot execute the stock Kotlin/JVM compiler bec
 
 ## Next engine gates
 
-1. Add parser fixtures for all accepted syntax and malformed nesting.
-2. Implement safe literal/state expression evaluation and supported click callback actions.
-3. Add modifier and common Material3 component support.
+1. Expand parser fixtures for additional Material3 form components and malformed nesting.
+2. Add typed form-state rendering and safe literal/state expression evaluation.
+3. Add broader modifier and common Material3 component support.
 4. Add incremental parsing and debounce for edit-to-preview latency.
 5. Decide whether to expand the interpreter or revive a separately validated Android-compatible compiler backend for general Kotlin.
 6. Validate the production APK on armeabi-v7a hardware; measure memory and latency.
