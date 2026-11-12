@@ -2,6 +2,7 @@ package com.techwithkaushik.composeliveeditor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +36,7 @@ import java.io.File
 
 private enum class FileDialogMode { NEW_FILE, NEW_FOLDER, RENAME, DELETE }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun FileManagerDrawer(
     rootDirectory: File,
