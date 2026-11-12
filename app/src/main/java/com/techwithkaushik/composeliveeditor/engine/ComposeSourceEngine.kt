@@ -135,23 +135,23 @@ object ComposeSourceEngine {
         val composables = declarations.filter { it.composable }
         val previews = composables.filter { it.preview }
         val names = previews.map { it.name }
-        if (previews.isEmpty() && composables.size == 1) {
-            val only = composables.single()
-            return PreviewSelection(source, only.name, listOf(only.name))
+        if (previews.isEmpty()) {
+            throw ParseFailure(
+                SourceDiagnostic(
+                    "No @Preview entry point found. Add @Preview to a @Composable function to render it.",
+                    1,
+                    1,
+                ),
+            )
         }
-        val selected = when {
-            previews.isNotEmpty() -> previews.firstOrNull { it.name == requestedName } ?: previews.first()
-            composables.size == 1 -> composables.single()
-            composables.isEmpty() -> null
-            else -> throw ParseFailure(SourceDiagnostic("Add @Preview(showBackground = true) to the composable you want to display", 1, 1))
-        } ?: return PreviewSelection(source, "", emptyList())
+        val selected = previews.firstOrNull { it.name == requestedName } ?: previews.first()
 
         val helpers = composables.associateBy { it.name }
         val expandedBody = expandComposableCalls(selected.body, helpers, linkedSetOf(selected.name), 0)
         return PreviewSelection(
             source = "@Composable fun ${selected.name}() { $expandedBody }",
             selectedName = selected.name,
-            previewNames = names.ifEmpty { listOf(selected.name) },
+            previewNames = names,
         )
     }
 
