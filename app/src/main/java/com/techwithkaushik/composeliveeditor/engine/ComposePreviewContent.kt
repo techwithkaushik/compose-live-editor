@@ -17,14 +17,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun ComposePreviewContent(node: PreviewNode, states: Map<String, MutableIntState>) {
+fun ComposePreviewContent(node: PreviewNode, states: Map<String, MutableState<Any>>) {
     when (node) {
         is PreviewNode.Column -> Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             node.children.forEach { ComposePreviewContent(it, states) }
@@ -36,14 +38,27 @@ fun ComposePreviewContent(node: PreviewNode, states: Map<String, MutableIntState
             node.children.forEach { ComposePreviewContent(it, states) }
         }
         is PreviewNode.Text -> Text(renderText(node.value, states), style = MaterialTheme.typography.bodyLarge)
-        is PreviewNode.TextField -> OutlinedTextField(
-            value = "",
-            onValueChange = {},
-            label = { Text(node.label) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = if (node.password) PasswordVisualTransformation() else VisualTransformation.None,
-        )
+        is PreviewNode.TextField -> {
+            val localValue = remember(node) { mutableStateOf<Any>("") }
+            val valueState = node.stateName?.let(states::get) ?: localValue
+            val visibilityState = node.passwordVisibleStateName?.let(states::get)
+            val visible = visibilityState?.value as? Boolean ?: false
+            OutlinedTextField(
+                value = valueState.value as? String ?: "",
+                onValueChange = { valueState.value = it },
+                label = { Text(node.label) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = if (node.password && !visible) PasswordVisualTransformation() else VisualTransformation.None,
+                trailingIcon = if (node.password && visibilityState != null) {
+                    {
+                        TextButton(onClick = { visibilityState.value = !visible }) {
+                            Text(if (visible) "Hide" else "Show")
+                        }
+                    }
+                } else null,
+            )
+        }
         is PreviewNode.Card -> Card(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth()) {
                 node.children.forEach { ComposePreviewContent(it, states) }
@@ -61,11 +76,11 @@ fun ComposePreviewContent(node: PreviewNode, states: Map<String, MutableIntState
                 node.actions.forEach { action ->
                     val state = states[action.stateName] ?: return@forEach
                     when (action) {
-                        is PreviewAction.Increment -> state.intValue += 1
-                        is PreviewAction.Decrement -> state.intValue -= 1
-                        is PreviewAction.Add -> state.intValue += action.amount
-                        is PreviewAction.Subtract -> state.intValue -= action.amount
-                        is PreviewAction.Assign -> state.intValue = action.value
+                        is PreviewAction.Increment -> state.value = ((state.value as? Int) ?: 0) + 1
+                        is PreviewAction.Decrement -> state.value = ((state.value as? Int) ?: 0) - 1
+                        is PreviewAction.Add -> state.value = ((state.value as? Int) ?: 0) + action.amount
+                        is PreviewAction.Subtract -> state.value = ((state.value as? Int) ?: 0) - action.amount
+                        is PreviewAction.Assign -> state.value = action.value
                     }
                 }
             }
@@ -78,8 +93,8 @@ fun ComposePreviewContent(node: PreviewNode, states: Map<String, MutableIntState
     }
 }
 
-private fun renderText(template: String, states: Map<String, MutableIntState>): String =
+private fun renderText(template: String, states: Map<String, MutableState<Any>>): String =
     STATE_REFERENCE_PATTERN.replace(template) { match ->
         val name = match.groupValues[1].ifEmpty { match.groupValues[2] }
-        states[name]?.intValue?.toString() ?: match.value
+        states[name]?.value?.toString() ?: match.value
     }
