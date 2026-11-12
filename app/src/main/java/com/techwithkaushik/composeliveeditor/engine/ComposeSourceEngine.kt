@@ -383,9 +383,9 @@ object ComposeSourceEngine {
                     val close = matchingToken(tokens, start - 1, "(", ")")
                     val args = tokens.subList(start, close).joinToString(" ") { it.text }
                     index = close + 1
-                    val label = Regex("""label\\s*=\\s*\\{\\s*Text\\s*\\(\\s*"([^"]*)"""")
+                    val label = Regex("""label\s*=\s*\{\s*Text\s*\(\s*"([^"]*)""")
                         .find(args)?.groupValues?.get(1)
-                        ?: Regex("""placeholder\\s*=\\s*\\{\\s*Text\\s*\\(\\s*"([^"]*)"""")
+                        ?: Regex("""placeholder\s*=\s*\{\s*Text\s*\(\s*"([^"]*)""")
                             .find(args)?.groupValues?.get(1)
                         ?: "Input"
                     PreviewNode.TextField(label, args.contains("PasswordVisualTransformation"))
