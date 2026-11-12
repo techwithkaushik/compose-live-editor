@@ -156,7 +156,7 @@ object ComposeSourceEngine {
                     output.append(body.substring(sourceCursor, token.offset))
                     val inner = body.substring(tokens[open].offset + 1, tokens[close].offset)
                     output.append(expandComposableCalls(inner, helpers, stack, depth + 1))
-                    sourceCursor = tokenEnd(body, tokens[close])
+                    sourceCursor = tokens.getOrNull(close + 1)?.offset ?: body.length
                     index = close + 1
                     continue
                 }
@@ -178,16 +178,6 @@ object ComposeSourceEngine {
         }
         output.append(body.substring(sourceCursor))
         return output.toString()
-    }
-
-    private fun tokenEnd(source: String, token: Token): Int {
-        val next = source.indexOfFirstFrom(token.offset + token.text.length) { false }
-        return if (next < 0) source.length else next
-    }
-
-    private fun String.indexOfFirstFrom(start: Int, predicate: (Char) -> Boolean): Int {
-        for (i in start until length) if (predicate(this[i])) return i
-        return -1
     }
 
     private fun matchingToken(tokens: List<Token>, start: Int, open: String, close: String): Int {
