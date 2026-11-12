@@ -147,17 +147,6 @@ class PreviewCompilationPipeline(
                 PreviewPipelineStage.KOTLIN_COMPOSE_COMPILE,
                 "No Android-compatible Kotlin + Compose compiler backend is installed.",
             )
-        val dexConverter = dexBackend
-            ?: return PreviewPipelineResult.Unavailable(
-                PreviewPipelineStage.DEX,
-                "No D8 backend is installed.",
-            )
-        val runtimeBackend = runtime
-            ?: return PreviewPipelineResult.Unavailable(
-                PreviewPipelineStage.RUNTIME_LOAD,
-                "No Android preview runtime backend is installed.",
-            )
-
         val compiled = try {
             compilerBackend.compile(request)
         } catch (failure: Exception) {
@@ -182,6 +171,12 @@ class PreviewCompilationPipeline(
             }
         }
 
+        val dexConverter = dexBackend
+            ?: return PreviewPipelineResult.Unavailable(
+                PreviewPipelineStage.DEX,
+                "No D8 backend is installed.",
+            )
+
         val dex = try {
             dexConverter.convert(
                 compilerArtifact.artifact,
@@ -204,6 +199,12 @@ class PreviewCompilationPipeline(
             )
             is DexCompilationResult.Success -> dex.artifact
         }
+
+        val runtimeBackend = runtime
+            ?: return PreviewPipelineResult.Unavailable(
+                PreviewPipelineStage.RUNTIME_LOAD,
+                "No Android preview runtime backend is installed.",
+            )
 
         val loaded = try {
             runtimeBackend.load(
