@@ -16,13 +16,13 @@ See [ACTIVE_ENGINE.md](ACTIVE_ENGINE.md) for the active interpreter limits and [
 
 The stock Kotlin/JVM compiler experiment cannot execute on stock Android ART because `java.lang.management.ManagementFactory` is absent. Do not fake Java SE classes in `java.*`, report skipped tests as successful compilation, or bundle the full compiler dependency graph before proving ART compatibility.
 
-The pipeline contracts are orchestration only. No Android-compatible Kotlin compiler, Compose compiler transformation, D8 implementation, or generated-code runtime loader is registered yet. Therefore the app's regular Preview action continues to use the bounded interpreter.
+The pipeline contracts are orchestration only. Runtime execution is a security boundary, not just a class-loader choice. No Android-compatible Kotlin compiler, Compose compiler transformation, D8 implementation, or generated-code runtime loader is registered yet. Therefore the app's regular Preview action continues to use the bounded interpreter.
 
 ## Remaining gates
 
 - Prove an Android-compatible Kotlin compiler and matching Compose compiler plugin on physical ARM32 ART.
 - Implement and validate D8 conversion against the Android platform and host Compose classpath.
-- Implement isolated DEX loading and safe invocation of transformed composable entry points.
+- Design an isolated DEX runtime. A normal `DexClassLoader` in the app process is not a sandbox; generated code must not inherit the editor's app permissions or unrestricted private-data access.
 - Resolve workspace source sets, Gradle dependencies, imports, symbols and module classpaths.
 - Add cancellation, stale-result rejection and incremental compilation.
 - Measure cold/warm latency, peak memory and APK size on the target device.
