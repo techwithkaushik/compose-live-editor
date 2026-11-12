@@ -345,12 +345,18 @@ object ComposeSourceEngine {
             expect("{")
             val factory = identifier("Expected mutableIntStateOf or mutableStateOf")
             if (factory.text !in setOf("mutableIntStateOf", "mutableStateOf")) {
-                fail("Only integer mutable state is supported", factory)
+                fail("Only mutableIntStateOf and mutableStateOf are supported", factory)
             }
             expect("(")
             val negative = match("-")
             val valueToken = current()
-            if (valueToken.kind != Kind.NUMBER) fail("Expected an integer initial state value", valueToken)
+            if (factory.text == "mutableStateOf" && (valueToken.kind == Kind.STRING || valueToken.text == "true" || valueToken.text == "false")) {
+                advance()
+                expect(")")
+                expect("}")
+                return // String/Boolean form state is retained as inert form data in this preview milestone.
+            }
+            if (valueToken.kind != Kind.NUMBER) fail("Expected an integer, string, or Boolean initial state value", valueToken)
             advance()
             val number = valueToken.value.toIntOrNull() ?: fail("Integer is out of range", valueToken)
             expect(")")
@@ -366,11 +372,13 @@ object ComposeSourceEngine {
             return when (name.text) {
                 "Text" -> {
                     expect("(")
+                    val argsOpen = index - 1
                     if (identifierIs("text")) expect("=")
                     val value = current()
                     if (value.kind != Kind.STRING) fail("Text currently requires a string literal", value)
                     advance()
-                    expect(")")
+                    val argsClose = matchingToken(tokens, argsOpen, "(", ")")
+                    index = argsClose + 1
                     references.findAll(value.value).forEach { reference ->
                         val stateName = reference.groupValues[1].ifEmpty { reference.groupValues[2] }
                         if (!states.containsKey(stateName)) fail("Text references unknown state variable '$stateName'", value)
@@ -391,7 +399,7 @@ object ComposeSourceEngine {
                     PreviewNode.TextField(label, args.contains("PasswordVisualTransformation"))
                 }
                 "Column", "Row", "Box" -> {
-                    if (match("(")) expect(")")
+                    if (match("(")) balanced("(", ")")
                     val children = children(depth)
                     when (name.text) {
                         "Column" -> PreviewNode.Column(children)
@@ -425,13 +433,22 @@ object ComposeSourceEngine {
                 }
                 "Button", "OutlinedButton", "TextButton" -> {
                     expect("(")
-                    val callback = identifier("Button only supports an onClick callback")
-                    if (callback.text != "onClick") fail("Button only supports onClick callbacks", callback)
-                    expect("="); expect("{")
-                    val callbackOpen = index - 1
-                    val callbackClose = matchingToken(tokens, callbackOpen, "{", "}")
+                    val argsOpen = index - 1
+                    val argsClose = matchingToken(tokens, argsOpen, "(", ")")
+                    var callbackIndex = -1
+                    for (candidate in index until argsClose) {
+                        if (tokens[candidate].text == "onClick" && tokens.getOrNull(candidate + 1)?.text == "=" &&
+                            tokens.getOrNull(candidate + 2)?.text == "{"
+                        ) {
+                            callbackIndex = candidate + 2
+                            break
+                        }
+                    }
+                    if (callbackIndex < 0) fail("Button requires an onClick lambda", current())
+                    val callbackClose = matchingToken(tokens, callbackIndex, "{", "}")
                     val actions = ArrayList<PreviewAction>()
-                    val callbackEnd = index
+                    val savedIndex = index
+                    index = callbackIndex + 1
                     try {
                         while (index < callbackClose) {
                             if (match(";")) continue
@@ -439,11 +456,10 @@ object ComposeSourceEngine {
                             if (actions.size > MAX_ACTIONS) fail("Button supports at most $MAX_ACTIONS actions", previous())
                         }
                     } catch (_: ParseFailure) {
-                        // Arbitrary application callbacks are intentionally inert in preview.
+                        // Application callbacks are not executed; unsupported callback bodies become safe no-ops.
                         actions.clear()
                     }
-                    index = callbackClose + 1
-                    expect(")")
+                    index = argsClose + 1
                     val style = when (name.text) { "OutlinedButton" -> ButtonStyle.OUTLINED; "TextButton" -> ButtonStyle.TEXT; else -> ButtonStyle.FILLED }
                     PreviewNode.Button(children(depth), actions, style)
                 }
