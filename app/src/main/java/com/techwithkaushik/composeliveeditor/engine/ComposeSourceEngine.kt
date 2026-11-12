@@ -7,7 +7,7 @@ sealed interface PreviewNode {
     data class Row(val children: List<PreviewNode>) : PreviewNode
     data class Box(val children: List<PreviewNode>) : PreviewNode
     data class Text(val value: String) : PreviewNode
-    data class TextField(val label: String, val password: Boolean = false) : PreviewNode
+    data class TextField(val label: String, val stateName: String?, val password: Boolean = false, val passwordVisibleStateName: String? = null) : PreviewNode
     data class Button(val children: List<PreviewNode>, val actions: List<PreviewAction>, val style: ButtonStyle = ButtonStyle.FILLED) : PreviewNode
     data class Card(val children: List<PreviewNode>) : PreviewNode
     data class Surface(val children: List<PreviewNode>) : PreviewNode
@@ -24,7 +24,7 @@ sealed interface PreviewAction {
     data class Subtract(override val stateName: String, val amount: Int) : PreviewAction
     data class Assign(override val stateName: String, val value: Int) : PreviewAction
 }
-data class PreviewState(val name: String, val initialValue: Int)
+data class PreviewState(val name: String, val initialValue: Int = 0, val initialText: String? = null, val initialBoolean: Boolean? = null)
 data class SourceDiagnostic(val message: String, val line: Int, val column: Int)
 sealed interface PreviewParseResult {
     data class Success(val entryPoint: String, val content: PreviewNode, val states: List<PreviewState>, val previewEntries: List<String> = listOf(entryPoint)) : PreviewParseResult
@@ -398,11 +398,19 @@ object ComposeSourceEngine {
             expect("(")
             val negative = match("-")
             val valueToken = current()
-            if (factory.text == "mutableStateOf" && (valueToken.kind == Kind.STRING || valueToken.text == "true" || valueToken.text == "false")) {
+            if (factory.text == "mutableStateOf" && valueToken.kind == Kind.STRING) {
                 advance()
                 expect(")")
                 expect("}")
-                return // String/Boolean form state is retained as inert form data in this preview milestone.
+                states[name.text] = PreviewState(name.text, initialText = valueToken.value)
+                return
+            }
+            if (factory.text == "mutableStateOf" && valueToken.text in setOf("true", "false")) {
+                advance()
+                expect(")")
+                expect("}")
+                states[name.text] = PreviewState(name.text, initialBoolean = valueToken.text == "true")
+                return
             }
             if (valueToken.kind != Kind.NUMBER) fail("Expected an integer, string, or Boolean initial state value", valueToken)
             advance()
@@ -444,7 +452,11 @@ object ComposeSourceEngine {
                         ?: Regex("""placeholder\s*=\s*\{\s*Text\s*\(\s*"([^"]*)""")
                             .find(args)?.groupValues?.get(1)
                         ?: "Input"
-                    PreviewNode.TextField(label, args.contains("PasswordVisualTransformation"))
+                    val stateName = Regex("""value\s*=\s*([A-Za-z_][A-Za-z0-9_]*)""")
+                        .find(args)?.groupValues?.get(1)
+                    val visibilityState = Regex("""if\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)""")
+                        .find(args)?.groupValues?.get(1)
+                    PreviewNode.TextField(label, stateName, args.contains("PasswordVisualTransformation"), visibilityState)
                 }
                 "Column", "Row", "Box" -> {
                     if (match("(")) balanced("(", ")")
