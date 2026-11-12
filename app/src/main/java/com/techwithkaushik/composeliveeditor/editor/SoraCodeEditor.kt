@@ -21,6 +21,31 @@ import io.github.rosemoe.sora.langs.textmate.registry.model.ThemeModel
 import io.github.rosemoe.sora.langs.textmate.registry.provider.AssetsFileResolver
 import io.github.rosemoe.sora.widget.CodeEditor
 import io.github.rosemoe.sora.widget.subscribeAlways
+
+/** Command bridge from the Compose toolbar to the native Sora editor view. */
+class SoraEditorController {
+    private var editor: CodeEditor? = null
+
+    internal fun attach(value: CodeEditor) {
+        editor = value
+    }
+
+    internal fun detach(value: CodeEditor) {
+        if (editor === value) editor = null
+    }
+
+    fun undo() {
+        editor?.takeIf { it.canUndo() }?.undo()
+    }
+
+    fun redo() {
+        editor?.takeIf { it.canRedo() }?.redo()
+    }
+
+    fun canUndo(): Boolean = editor?.canUndo() == true
+
+    fun canRedo(): Boolean = editor?.canRedo() == true
+}
 import org.eclipse.tm4e.core.registry.IThemeSource
 
 /** Hosts Sora's native Kotlin highlighting, completion window and diagnostic quick-fix UI. */
@@ -30,11 +55,14 @@ fun SoraCodeEditor(
     onSourceChange: (String) -> Unit,
     diagnostics: List<EditorDiagnostic>,
     darkTheme: Boolean,
+    controller: SoraEditorController,
+    onHistoryChanged: (canUndo: Boolean, canRedo: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val currentOnSourceChange = rememberUpdatedState(onSourceChange)
     val currentDiagnostics = rememberUpdatedState(diagnostics)
     val currentDarkTheme = rememberUpdatedState(darkTheme)
+    val currentOnHistoryChanged = rememberUpdatedState(onHistoryChanged)
 
     AndroidView(
         modifier = modifier,
@@ -47,6 +75,8 @@ fun SoraCodeEditor(
                     13f,
                     context.resources.displayMetrics,
                 )
+                setUndoEnabled(true)
+                controller.attach(this)
                 setText(source)
                 setEditorLanguage(TextMateLanguage.create("source.kotlin", true))
                 colorScheme = KotlinTextMateSupport.colorScheme(currentDarkTheme.value)
@@ -55,13 +85,21 @@ fun SoraCodeEditor(
                 setHighlightCurrentBlock(true)
                 setTabWidth(4)
                 setDiagnostics(buildDiagnostics(this, currentDiagnostics.value))
+                currentOnHistoryChanged.value(canUndo(), canRedo())
                 subscribeAlways<ContentChangeEvent> {
                     currentOnSourceChange.value(text.toString())
+                    currentOnHistoryChanged.value(canUndo(), canRedo())
                 }
             }
         },
         update = { editor ->
-            if (editor.text.toString() != source) editor.setText(source)
+            if (editor.text.toString() != source) {
+                // Reset history when switching to another workspace file.
+                editor.setUndoEnabled(false)
+                editor.setText(source)
+                editor.setUndoEnabled(true)
+                currentOnHistoryChanged.value(editor.canUndo(), editor.canRedo())
+            }
             if (editor.colorScheme !is TextMateColorScheme ||
                 KotlinTextMateSupport.isDarkTheme != currentDarkTheme.value
             ) {
@@ -69,7 +107,10 @@ fun SoraCodeEditor(
             }
             editor.setDiagnostics(buildDiagnostics(editor, currentDiagnostics.value))
         },
-        onRelease = { editor -> editor.release() },
+        onRelease = { editor ->
+            controller.detach(editor)
+            editor.release()
+        },
     )
 }
 
