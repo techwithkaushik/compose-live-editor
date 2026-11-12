@@ -114,12 +114,6 @@ object ComposeEditorLanguageTools {
                 diagnostics += EditorDiagnostic("Unused import: " + name, line, 1, DiagnosticSeverity.WARNING, "unused-import")
             }
         }
-        composablePattern.findAll(source).forEach { match ->
-            if (source.substring(match.range.last + 1).contains("@Composable")) {
-                val line = source.substring(0, match.range.first).count { it == '\n' } + 1
-                diagnostics += EditorDiagnostic("Only one preview entry point is supported; found additional composable declarations", line, 1, DiagnosticSeverity.WARNING, "multiple-entry-points")
-            }
-        }
         return diagnostics.distinct().sortedWith(compareBy<EditorDiagnostic>({ it.line }, { it.column }, { it.severity.ordinal }))
     }
 
