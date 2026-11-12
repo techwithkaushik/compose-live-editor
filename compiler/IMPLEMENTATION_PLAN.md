@@ -1,24 +1,31 @@
-# On-device Compose execution: implementation plan
+# Android Studio-equivalent Compose preview implementation plan
 
 ## Current state
 
-The app has an active, bounded source interpreter. The Run Preview action parses the current editor buffer and renders the resulting node tree with the real Compose runtime. Supported calls and limits are documented in [ACTIVE_ENGINE.md](ACTIVE_ENGINE.md).
+Preview discovery now requires explicit `@Preview` plus `@Composable`. Plain composables are not implicitly previewed. The active renderer is still a bounded source interpreter and is not universal Kotlin/Compose execution.
 
-This is a genuine source-to-UI path, but it is not arbitrary Kotlin execution. Unsupported syntax produces a diagnostic and does not display a canned preview.
+## Work sequence
 
-## Why the stock Kotlin compiler is not the active engine
+1. **Compiler feasibility gate:** validate an Android-compatible Kotlin compiler and matching Compose compiler plugin on physical ARM32 ART. Measure startup, memory and output.
+2. **Project model:** resolve all Kotlin source files, Gradle dependencies, imports, symbols and module classpaths.
+3. **Compilation:** compile the selected project source set with Compose transformation and actionable diagnostics.
+4. **DEX pipeline:** run D8 against Android APIs and the exact Compose artifacts used by the host app.
+5. **Isolated execution:** load generated DEX in a restricted process/class loader and invoke only discovered preview entry points.
+6. **Real preview host:** render with the actual Compose runtime, including nested/custom composables, Material 2/3, modifiers, state, recomposition, themes and preview parameters.
+7. **Incremental updates:** cancel stale builds, debounce edits, cache dependency/compiler outputs and refresh previews safely.
+8. **Validation:** run a fixture matrix covering arbitrary imports, multiple preview functions, helper composables, state, callbacks, parameter providers, compile errors and runtime exceptions on ARM32 devices.
 
-The ART experiment cannot execute the stock Kotlin/JVM compiler because Android ART lacks `java.lang.management.ManagementFactory`. The spike's compile assertions skip on that runtime. Do not fake Java SE classes in `java.*` or treat skipped tests as success.
+## Workspace file manager
 
-## Next implementation gates
+The app-private workspace drawer supports folder navigation, file opening, create file/folder, and long-press rename/delete. Editor changes are autosaved to the active workspace file.
 
-1. Add safe literal/state expression evaluation and a restricted callback action model.
-2. Add modifier support and commonly used Material3 components.
-3. Add incremental parsing, cancellation, and edit-to-preview debounce.
-4. Add source maps and richer diagnostics as grammar grows.
-5. Evaluate a separately validated Android-compatible compiler backend for arbitrary Kotlin only if the interpreter's supported language ceiling becomes insufficient.
-6. Validate the release APK on a physical `armeabi-v7a` device; measure memory, latency, and package size.
+## Acceptance criteria
 
-## Acceptance rule
+- Only `@Preview @Composable` declarations are previewed.
+- No predefined component whitelist is required for actual preview rendering.
+- Valid project imports and custom composables resolve through the project compiler classpath.
+- Preview output is generated from the current source and executed by the real Compose runtime.
+- Compiler errors, runtime failures and stale previews are clearly distinguished.
+- ARM32 physical-device measurements are available before enabling the compiler backend by default.
 
-A preview is successful only when it is derived from the current edited source and rendered by the real Compose runtime. Unsupported syntax must be reported, never silently ignored or replaced by a canned sample.
+A parser-only rendering pass is not considered completion of the universal preview feature.
