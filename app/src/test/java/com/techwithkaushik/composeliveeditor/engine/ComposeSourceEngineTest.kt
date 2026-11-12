@@ -413,7 +413,7 @@ class ComposeSourceEngineTest {
                             PasswordVisualTransformation()
                         }
                     )
-                    Text("Email: ${'
+                    Text("Email")
                 }
             }
         """.trimIndent()
