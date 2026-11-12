@@ -1,5 +1,6 @@
 package com.techwithkaushik.composeliveeditor
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.io.File
@@ -53,7 +55,7 @@ internal fun FileManagerDrawer(
     }
 
     Box(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().combinedClickable(onClick = onClose, onLongClick = {}))
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.32f)).combinedClickable(onClick = onClose, onLongClick = {}))
         Surface(
             modifier = Modifier.width(320.dp).fillMaxHeight(),
             color = MaterialTheme.colorScheme.surface,
@@ -163,7 +165,10 @@ internal fun FileManagerDrawer(
             },
             text = {
                 if (mode == FileDialogMode.DELETE) {
-                    Text("Delete " + selectedFile?.name.orEmpty() + "? This operation cannot be undone.")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Delete " + selectedFile?.name.orEmpty() + "? This operation cannot be undone.")
+                        operationError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
