@@ -461,6 +461,53 @@ class ComposeSourceEngineTest {
     }
 
     @Test
+    fun previewsSimpleScreenThroughPreviewWrapper() {
+        val source = """
+            import androidx.compose.foundation.layout.Column
+            import androidx.compose.material3.Text
+            import androidx.compose.runtime.*
+            import androidx.compose.ui.tooling.preview.Preview
+
+            @Composable
+            fun Screen() {
+                Column() {
+                    Text("Hello")
+                }
+            }
+
+            @Preview
+            @Composable
+            fun ScreenPreview() {
+                Screen()
+            }
+        """.trimIndent()
+
+        val result = parseSource(source)
+        assertTrue("Expected ScreenPreview to render, got $result", result is PreviewParseResult.Success)
+        val success = result as PreviewParseResult.Success
+        assertEquals("ScreenPreview", success.entryPoint)
+        val root = success.content as PreviewNode.Column
+        assertEquals("Hello", (root.children.single() as PreviewNode.Text).value)
+    }
+
+    @Test
+    fun explainsPreviewFunctionMissingBody() {
+        val source = """
+            @Preview
+            @Composable
+            fun ScreenPreview(
+                Screen()
+            )
+        """.trimIndent()
+
+        val result = parseSource(source)
+        assertTrue(result is PreviewParseResult.Failure)
+        assertTrue(
+            (result as PreviewParseResult.Failure).diagnostic.message.contains("missing its body"),
+        )
+    }
+
+    @Test
     fun parsesEditableTextAndBooleanFormState() {
         val source = """
             @Composable
