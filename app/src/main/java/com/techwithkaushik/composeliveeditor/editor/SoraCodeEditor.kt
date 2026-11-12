@@ -79,7 +79,13 @@ fun SoraCodeEditor(
                 setUndoEnabled(true)
                 controller.attach(this)
                 setText(source)
-                setEditorLanguage(TextMateLanguage.create("source.kotlin", true))
+                val kotlinLanguage = TextMateLanguage.create("source.kotlin", true).apply {
+                    // TextMate contributes document identifiers; this catalog adds Kotlin
+                    // and Compose APIs so completion works before a symbol is imported.
+                    setCompleterKeywords(ComposeEditorLanguageTools.completionKeywords())
+                    setAutoCompleteEnabled(true)
+                }
+                setEditorLanguage(kotlinLanguage)
                 colorScheme = KotlinTextMateSupport.colorScheme(currentDarkTheme.value)
                 setLineNumberEnabled(true)
                 setHighlightCurrentLine(true)
