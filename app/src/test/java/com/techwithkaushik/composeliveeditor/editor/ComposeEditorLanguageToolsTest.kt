@@ -72,6 +72,18 @@ class ComposeEditorLanguageToolsTest {
         assertTrue(labels.size > 100)
     }
     @Test
+    fun exposesKotlinAndComposeKeywordsToSoraCompletion() {
+        val keywords = ComposeEditorLanguageTools.completionKeywords().toSet()
+        assertTrue("Column" in keywords)
+        assertTrue("Text" in keywords)
+        assertTrue("OutlinedTextField" in keywords)
+        assertTrue("Composable" in keywords)
+        assertTrue("Preview" in keywords)
+        assertTrue("fun" in keywords)
+        assertTrue("remember" in keywords)
+    }
+
+    @Test
     fun wildcardComposeImportsResolveSymbolsAndAreNotMarkedUnused() {
         val diagnostics = ComposeEditorLanguageTools.analyze(
             """
