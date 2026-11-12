@@ -78,11 +78,14 @@ object ComposeEditorLanguageTools {
             diagnostics += EditorDiagnostic(parsed.diagnostic.message, parsed.diagnostic.line, parsed.diagnostic.column, DiagnosticSeverity.ERROR, "compose-preview")
         }
         val imports = importPattern.findAll(source).map { it.groupValues[1] }.toSet()
-        val importedNames = imports.filterNot { it.endsWith(".*") }.map { it.substringAfterLast('.') }.toSet()\n        val wildcardImportPrefixes = imports.filter { it.endsWith(".*") }.map { it.removeSuffix("*") }
+        val importedNames = imports.filterNot { it.endsWith(".*") }.map { it.substringAfterLast('.') }.toSet()
+        val wildcardImportPrefixes = imports.filter { it.endsWith(".*") }.map { it.removeSuffix("*") }
         componentUsagePattern.findAll(maskCommentsAndStrings(source)).forEach { match ->
             val name = match.groupValues[1]
             val candidates = symbolsByName[name] ?: return@forEach
-            if (name in importedNames || candidates.any { candidate ->\n                    candidate in imports || wildcardImportPrefixes.any(candidate::startsWith)\n                }) return@forEach
+            if (name in importedNames || candidates.any { candidate ->
+                    candidate in imports || wildcardImportPrefixes.any(candidate::startsWith)
+                }) return@forEach
             val lineStart = source.lastIndexOf('\n', match.range.first - 1) + 1
             val linePrefix = source.substring(lineStart, match.range.first)
             if (Regex("\\b(fun|class|interface|object|typealias)\\s+$name\\s*$").containsMatchIn(linePrefix)) return@forEach
@@ -107,7 +110,9 @@ object ComposeEditorLanguageTools {
             diagnostics += EditorDiagnostic(match.value + " marker should be resolved before release", line, column, DiagnosticSeverity.INFO, "todo-marker")
         }
         importPattern.findAll(source).forEach { match ->
-            val name = match.groupValues[1].substringAfterLast('.')
+            val importedPath = match.groupValues[1]
+            if (importedPath.endsWith(".*")) return@forEach
+            val name = importedPath.substringAfterLast('.')
             if (name !in source.substring(match.range.last + 1)) {
                 val line = source.substring(0, match.range.first).count { it == '\n' } + 1
                 diagnostics += EditorDiagnostic("Unused import: " + name, line, 1, DiagnosticSeverity.WARNING, "unused-import")
