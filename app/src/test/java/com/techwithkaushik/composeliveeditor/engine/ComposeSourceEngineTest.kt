@@ -5,9 +5,33 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ComposeSourceEngineTest {
+
+    private fun parseSource(source: String, previewName: String? = null): PreviewParseResult {
+        val hasPreviewAnnotation = source.contains("Preview")
+        val composableCount = Regex("@Composable\\b").findAll(source).count()
+        val prepared = if (!hasPreviewAnnotation && composableCount == 1) {
+            source.replaceFirst("@Composable", "@Preview\\n@Composable")
+        } else {
+            source
+        }
+        return ComposeSourceEngine.parse(prepared, previewName)
+    }
+
+
+    @Test
+    fun rejectsComposableWithoutExplicitPreviewAnnotation() {
+        val result = ComposeSourceEngine.parse(
+            """@Composable fun Screen() { Column { Text("Not a preview") } }""",
+        )
+        assertTrue("A plain @Composable must not become a preview: $result", result is PreviewParseResult.Failure)
+        assertTrue(
+            (result as PreviewParseResult.Failure).diagnostic.message.contains("@Preview"),
+        )
+    }
+
     @Test
     fun parsesBasicComposeTree() {
-        val result = ComposeSourceEngine.parse(
+        val result = parseSource(
             """@Composable fun Screen() { Column { Text("Hello"); Button(onClick = { }) { Text("Tap") } } }""",
         )
         assertTrue("Expected success, got $result", result is PreviewParseResult.Success)
@@ -18,7 +42,7 @@ class ComposeSourceEngineTest {
 
     @Test
     fun parsesStateAndClickActions() {
-        val result = ComposeSourceEngine.parse(
+        val result = parseSource(
             """@Composable fun Counter() {
                 var count by remember { mutableIntStateOf(0) }
                 Column {
@@ -47,7 +71,7 @@ class ComposeSourceEngineTest {
 
     @Test
     fun acceptsMutableStateOfInteger() {
-        val result = ComposeSourceEngine.parse(
+        val result = parseSource(
             """@Composable fun Screen() { var value by remember { mutableStateOf(4) }; Column { Text("${'$'}value") } }""",
         )
         assertTrue(result is PreviewParseResult.Success)
@@ -56,7 +80,7 @@ class ComposeSourceEngineTest {
 
     @Test
     fun rejectsUnknownStateReferences() {
-        val result = ComposeSourceEngine.parse(
+        val result = parseSource(
             """@Composable fun Screen() { Column { Text("${'$'}missing") } }""",
         )
         assertTrue(result is PreviewParseResult.Failure)
@@ -64,7 +88,7 @@ class ComposeSourceEngineTest {
 
     @Test
     fun keepsApplicationCallbacksInertInsteadOfExecutingThem() {
-        val result = ComposeSourceEngine.parse(
+        val result = parseSource(
             """@Composable fun Screen() { Column { Button(onClick = { submitLogin("a", "b") }, modifier = Modifier.fillMaxWidth()) { Text("Run") } } }""",
         )
         assertTrue("Expected safe no-op callback, got $result", result is PreviewParseResult.Success)
@@ -74,7 +98,7 @@ class ComposeSourceEngineTest {
 
     @Test
     fun parsesEscapedStringsAndNestedLayouts() {
-        val result = ComposeSourceEngine.parse(
+        val result = parseSource(
             """@Composable fun Screen() { Column { Row { Text("A\nB") } } }""",
         )
         assertTrue(result is PreviewParseResult.Success)
@@ -85,7 +109,7 @@ class ComposeSourceEngineTest {
 
     @Test
     fun reportsUnsupportedCallsWithSourceLocation() {
-        val result = ComposeSourceEngine.parse("@Composable\nfun Screen() {\n  Column {\n    Image()\n  }\n}")
+        val result = parseSource("@Composable\nfun Screen() {\n  Column {\n    Image()\n  }\n}")
         assertTrue(result is PreviewParseResult.Failure)
         val diagnostic = (result as PreviewParseResult.Failure).diagnostic
         assertEquals(4, diagnostic.line)
@@ -94,13 +118,13 @@ class ComposeSourceEngineTest {
 
     @Test
     fun requiresComposableEntryPointAnnotation() {
-        val result = ComposeSourceEngine.parse("""fun Screen() { Column { Text("Hello") } }""")
+        val result = parseSource("""fun Screen() { Column { Text("Hello") } }""")
         assertTrue(result is PreviewParseResult.Failure)
     }
 
     @Test
     fun acceptsTextStyleArgumentsWhileRenderingLiteralText() {
-        val result = ComposeSourceEngine.parse(
+        val result = parseSource(
             """@Composable fun Screen() { Column { Text("Hello", color = Color.Red) } }""",
         )
         assertTrue("Expected literal text preview, got $result", result is PreviewParseResult.Success)
@@ -110,13 +134,13 @@ class ComposeSourceEngineTest {
 
     @Test
     fun rejectsMalformedAndOversizedSource() {
-        assertTrue(ComposeSourceEngine.parse("@Composable fun Screen() { Column { Text( } }") is PreviewParseResult.Failure)
-        assertTrue(ComposeSourceEngine.parse("x".repeat(65 * 1024)) is PreviewParseResult.Failure)
+        assertTrue(parseSource("@Composable fun Screen() { Column { Text( } }") is PreviewParseResult.Failure)
+        assertTrue(parseSource("x".repeat(65 * 1024)) is PreviewParseResult.Failure)
     }
 
     @Test
     fun parsesMaterialContainersAndButtonVariants() {
-        val result = ComposeSourceEngine.parse(
+        val result = parseSource(
             """@Composable fun Screen() { Column { Card {
                 Surface { Text("Content") }
                 OutlinedButton(onClick = { }) { Text("Outlined") }
@@ -134,7 +158,7 @@ class ComposeSourceEngineTest {
 
     @Test
     fun parsesSpacerAndDivider() {
-        val result = ComposeSourceEngine.parse(
+        val result = parseSource(
             """@Composable fun Screen() { Column { Spacer(modifier = Modifier.height(24.dp)); HorizontalDivider() } }""",
         )
         assertTrue("Expected success, got $result", result is PreviewParseResult.Success)
@@ -145,7 +169,7 @@ class ComposeSourceEngineTest {
 
     @Test
     fun rejectsOutOfRangeSpacerHeight() {
-        val result = ComposeSourceEngine.parse(
+        val result = parseSource(
             """@Composable fun Screen() { Column { Spacer(modifier = Modifier.height(999.dp)) } }""",
         )
         assertTrue(result is PreviewParseResult.Failure)
@@ -178,7 +202,7 @@ class ComposeSourceEngineTest {
             @Composable
             fun AnotherHelper() { Column { Text("Not the preview") } }
         """.trimIndent()
-        val result = ComposeSourceEngine.parse(source)
+        val result = parseSource(source)
         assertTrue("Expected preview success, got $result", result is PreviewParseResult.Success)
         val success = result as PreviewParseResult.Success
         assertEquals("SimpleLoginScreenPreview", success.entryPoint)
@@ -196,10 +220,10 @@ class ComposeSourceEngineTest {
             @Composable @Preview(showBackground = true) fun SecondPreview() { Row { Text("Second") } }
             @Composable fun Helper() { Text("Helper") }
         """.trimIndent()
-        val first = ComposeSourceEngine.parse(source)
+        val first = parseSource(source)
         assertTrue(first is PreviewParseResult.Success)
         assertEquals(listOf("FirstPreview", "SecondPreview"), (first as PreviewParseResult.Success).previewEntries)
-        val second = ComposeSourceEngine.parse(source, "SecondPreview")
+        val second = parseSource(source, "SecondPreview")
         assertTrue(second is PreviewParseResult.Success)
         val secondSuccess = second as PreviewParseResult.Success
         assertEquals("SecondPreview", secondSuccess.entryPoint)
@@ -212,7 +236,7 @@ class ComposeSourceEngineTest {
             @Composable fun First() { Column { Text("A") } }
             @Composable fun Second() { Column { Text("B") } }
         """.trimIndent()
-        assertTrue(ComposeSourceEngine.parse(source) is PreviewParseResult.Failure)
+        assertTrue(parseSource(source) is PreviewParseResult.Failure)
     }
 
     @Test
@@ -232,7 +256,7 @@ class ComposeSourceEngineTest {
             }
         """.trimIndent()
 
-        val result = ComposeSourceEngine.parse(source)
+        val result = parseSource(source)
         assertTrue("Expected wildcard-import preview success, got $result", result is PreviewParseResult.Success)
         val success = result as PreviewParseResult.Success
         assertEquals("RuntimeWildcardPreview", success.entryPoint)
@@ -357,7 +381,7 @@ class ComposeSourceEngineTest {
             }
         """.trimIndent()
 
-        val result = ComposeSourceEngine.parse(source)
+        val result = parseSource(source)
         assertTrue("Expected login screen preview success, got $result", result is PreviewParseResult.Success)
         val root = (result as PreviewParseResult.Success).content as PreviewNode.Column
         assertEquals("Login", (root.children[0] as PreviewNode.Text).value)
@@ -380,7 +404,7 @@ class ComposeSourceEngineTest {
             fun OtherScreen() { Column { Text("Not selected") } }
         """.trimIndent()
 
-        val result = ComposeSourceEngine.parse(source)
+        val result = parseSource(source)
         assertTrue("Expected @Preview entry point, got $result", result is PreviewParseResult.Success)
         val success = result as PreviewParseResult.Success
         assertEquals("LoginPreview", success.entryPoint)
@@ -418,7 +442,7 @@ class ComposeSourceEngineTest {
             }
         """.trimIndent()
 
-        val result = ComposeSourceEngine.parse(source)
+        val result = parseSource(source)
         assertTrue("Expected editable form preview, got $result", result is PreviewParseResult.Success)
         val success = result as PreviewParseResult.Success
         assertEquals("", success.states.first { it.name == "email" }.initialText)
