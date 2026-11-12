@@ -1,6 +1,7 @@
 package com.techwithkaushik.composeliveeditor
 
 import android.os.Bundle
+import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -41,21 +42,34 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
 import com.techwithkaushik.composeliveeditor.engine.ComposePreviewContent
 import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
 import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
 import com.techwithkaushik.composeliveeditor.editor.ComposeEditorLanguageTools
 import com.techwithkaushik.composeliveeditor.editor.SoraCodeEditor
+
+private const val EDITOR_PREFERENCES = "compose_live_editor_session"
+private const val KEY_SOURCE = "source"
+private const val KEY_SELECTED_PREVIEW = "selected_preview"
+private const val KEY_SHOW_PREVIEW = "show_preview"
 
 private const val STARTER_SOURCE = """import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
@@ -88,11 +102,61 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ComposeEditorApp() {
-    var source by rememberSaveable { mutableStateOf(STARTER_SOURCE) }
-    var showPreview by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current.applicationContext
+    val preferences = remember(context) {
+        context.getSharedPreferences(EDITOR_PREFERENCES, Context.MODE_PRIVATE)
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var source by remember {
+        mutableStateOf(preferences.getString(KEY_SOURCE, null) ?: STARTER_SOURCE)
+    }
+    var showPreview by remember {
+        mutableStateOf(preferences.getBoolean(KEY_SHOW_PREVIEW, false))
+    }
     var previewResult by remember { mutableStateOf<PreviewParseResult?>(null) }
-    var selectedPreviewName by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedPreviewName by remember {
+        mutableStateOf(preferences.getString(KEY_SELECTED_PREVIEW, null))
+    }
     var darkTheme by rememberSaveable { mutableStateOf(false) }
+    val currentSource by rememberUpdatedState(source)
+    val currentPreviewName by rememberUpdatedState(selectedPreviewName)
+    val currentShowPreview by rememberUpdatedState(showPreview)
+    val persistSession = {
+        preferences.edit()
+            .putString(KEY_SOURCE, currentSource)
+            .putString(KEY_SELECTED_PREVIEW, currentPreviewName)
+            .putBoolean(KEY_SHOW_PREVIEW, currentShowPreview)
+            .apply()
+    }
+
+    // Debounced autosave protects the editor from losing recent edits while avoiding
+    // a disk write for every keystroke.
+    LaunchedEffect(source, selectedPreviewName, showPreview) {
+        delay(350)
+        persistSession()
+    }
+
+    // Flush the latest editor session when the app goes to the background or
+    // the composition is disposed (configuration change / activity recreation).
+    DisposableEffect(lifecycleOwner, preferences) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) persistSession()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            persistSession()
+        }
+    }
+
+    LaunchedEffect(source, selectedPreviewName, showPreview) {
+        previewResult = if (showPreview) {
+            ComposeSourceEngine.parse(source, selectedPreviewName)
+        } else {
+            null
+        }
+    }
+
     val diagnostics = remember(source) { ComposeEditorLanguageTools.analyze(source) }
     BackHandler(enabled = showPreview) { showPreview = false }
 
