@@ -16,7 +16,7 @@ Supported syntax is intentionally limited and documented by the parser/tests. Un
 2. Resolve imports, symbols and dependencies from the project's Gradle configuration.
 3. Compile with a Kotlin compiler and matching Compose compiler plugin.
 4. Convert compatible output to DEX using D8.
-5. Load and invoke preview entry points in an isolated Android runtime host that uses the actual Compose libraries shipped by the app.
+5. Load and invoke preview entry points in a separately isolated Android process/UID that uses the actual Compose libraries shipped by the app. A class loader inside the editor process is not a security sandbox.
 6. Render each preview with real Compose state, recomposition, modifiers, themes and parameter providers.
 7. Map compiler and runtime diagnostics back to source locations.
 
@@ -27,7 +27,7 @@ The existing stock Kotlin/JVM compiler experiment cannot run as-is on stock Andr
 - Compiler starts and compiles an edited Kotlin file in ART.
 - Matching Compose compiler transformation succeeds.
 - D8 converts output successfully.
-- Isolated class loading and composable invocation succeed.
+- Isolated-UID loading and composable invocation succeed without granting generated code editor permissions or direct access to editor-private data.
 - Editing a string in the source changes the rendered preview.
 - Syntax/type errors produce accurate diagnostics and never display stale output as current.
 - Cold/warm latency, peak memory and APK size are measured.
