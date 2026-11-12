@@ -366,4 +366,68 @@ class ComposeSourceEngineTest {
         assertTrue(root.children.last() is PreviewNode.Button)
     }
 
+    @Test
+    fun selectsPreviewAnnotationInsteadOfPlainComposableAndSupportsQualifiedPreview() {
+        val source = """
+            @Composable
+            fun LoginScreen() { Column { Text("Login screen") } }
+
+            @androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+            @Composable
+            fun LoginPreview() { LoginScreen() }
+
+            @Composable
+            fun OtherScreen() { Column { Text("Not selected") } }
+        """.trimIndent()
+
+        val result = ComposeSourceEngine.parse(source)
+        assertTrue("Expected @Preview entry point, got $result", result is PreviewParseResult.Success)
+        val success = result as PreviewParseResult.Success
+        assertEquals("LoginPreview", success.entryPoint)
+        assertEquals(listOf("LoginPreview"), success.previewEntries)
+        val root = success.content as PreviewNode.Column
+        assertEquals("Login screen", (root.children.single() as PreviewNode.Text).value)
+    }
+
+    @Test
+    fun parsesEditableTextAndBooleanFormState() {
+        val source = """
+            @Composable
+            fun LoginScreen() {
+                var email by remember { mutableStateOf("") }
+                var password by remember { mutableStateOf("") }
+                var passwordVisible by remember { mutableStateOf(false) }
+                Column {
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Email") }
+                    )
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        visualTransformation = if (passwordVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        }
+                    )
+                    Text("Email: $email")
+                }
+            }
+        """.trimIndent()
+
+        val result = ComposeSourceEngine.parse(source)
+        assertTrue("Expected editable form preview, got $result", result is PreviewParseResult.Success)
+        val success = result as PreviewParseResult.Success
+        assertEquals("", success.states.first { it.name == "email" }.initialText)
+        assertEquals("", success.states.first { it.name == "password" }.initialText)
+        assertEquals(false, success.states.first { it.name == "passwordVisible" }.initialBoolean)
+        val children = (success.content as PreviewNode.Column).children
+        assertEquals("email", (children[0] as PreviewNode.TextField).stateName)
+        assertEquals("password", (children[1] as PreviewNode.TextField).stateName)
+        assertEquals("passwordVisible", (children[1] as PreviewNode.TextField).passwordVisibleStateName)
+    }
+
 }
