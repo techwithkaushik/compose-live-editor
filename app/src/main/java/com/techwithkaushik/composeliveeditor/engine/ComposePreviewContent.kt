@@ -12,11 +12,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -33,6 +36,14 @@ fun ComposePreviewContent(node: PreviewNode, states: Map<String, MutableIntState
             node.children.forEach { ComposePreviewContent(it, states) }
         }
         is PreviewNode.Text -> Text(renderText(node.value, states), style = MaterialTheme.typography.bodyLarge)
+        is PreviewNode.TextField -> OutlinedTextField(
+            value = "",
+            onValueChange = {},
+            label = { Text(node.label) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = if (node.password) PasswordVisualTransformation() else VisualTransformation.None,
+        )
         is PreviewNode.Card -> Card(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth()) {
                 node.children.forEach { ComposePreviewContent(it, states) }
