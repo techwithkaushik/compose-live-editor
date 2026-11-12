@@ -120,6 +120,10 @@ object ComposeSourceEngine {
         val composables = declarations.filter { it.composable }
         val previews = composables.filter { it.preview }
         val names = previews.map { it.name }
+        if (previews.isEmpty() && composables.size == 1) {
+            val only = composables.single()
+            return PreviewSelection(source, only.name, listOf(only.name))
+        }
         val selected = when {
             previews.isNotEmpty() -> previews.firstOrNull { it.name == requestedName } ?: previews.first()
             composables.size == 1 -> composables.single()
@@ -447,7 +451,6 @@ object ComposeSourceEngine {
                     if (callbackIndex < 0) fail("Button requires an onClick lambda", current())
                     val callbackClose = matchingToken(tokens, callbackIndex, "{", "}")
                     val actions = ArrayList<PreviewAction>()
-                    val savedIndex = index
                     index = callbackIndex + 1
                     try {
                         while (index < callbackClose) {
