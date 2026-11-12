@@ -149,7 +149,7 @@ object ComposeSourceEngine {
         val helpers = composables.associateBy { it.name }
         val expandedBody = expandComposableCalls(selected.body, helpers, linkedSetOf(selected.name), 0)
         return PreviewSelection(
-            source = "\\n".repeat(selected.lineOffset) + "@Composable fun ${selected.name}() { $expandedBody }",
+            source = "\n".repeat(selected.lineOffset) + "@Composable fun ${selected.name}() { $expandedBody }",
             selectedName = selected.name,
             previewNames = names,
         )
