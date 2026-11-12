@@ -30,6 +30,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -56,6 +58,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Brightness4
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Undo
+import android.widget.Toast
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -124,6 +136,11 @@ private fun ComposeEditorApp() {
     }
     var showFileManager by rememberSaveable { mutableStateOf(false) }
     var activeFile by remember { mutableStateOf<File?>(null) }
+    var isDirty by remember { mutableStateOf(false) }
+    var canUndo by remember { mutableStateOf(false) }
+    var canRedo by remember { mutableStateOf(false) }
+    val editorController = remember { com.techwithkaushik.composeliveeditor.editor.SoraEditorController() }
+    val coroutineScope = rememberCoroutineScope()
     val workspaceDirectory = remember(context) { File(context.filesDir, "workspace").apply { mkdirs() } }
     var darkTheme by rememberSaveable { mutableStateOf(false) }
     val currentSource = rememberUpdatedState(source)
@@ -159,13 +176,59 @@ private fun ComposeEditorApp() {
 
     LaunchedEffect(source, activeFile) {
         val file = activeFile ?: return@LaunchedEffect
+        val snapshot = source
         delay(450)
-        withContext(Dispatchers.IO) {
+        val saved = withContext(Dispatchers.IO) {
             runCatching {
                 val root = workspaceDirectory.canonicalFile.toPath()
                 val target = file.canonicalFile.toPath()
                 check(target.startsWith(root)) { "File is outside the workspace" }
-                file.writeText(source)
+                file.parentFile?.mkdirs()
+                file.writeText(snapshot)
+            }
+        }
+        if (saved.isSuccess && source == snapshot) isDirty = false
+    }
+
+    val saveCurrentFile: () -> Unit = {
+        val snapshot = source
+        val currentTarget = activeFile
+        coroutineScope.launch {
+            val savedFile = withContext(Dispatchers.IO) {
+                runCatching {
+                    val root = workspaceDirectory.canonicalFile
+                    check(root.exists() || root.mkdirs()) { "Unable to create workspace" }
+                    val target = currentTarget ?: run {
+                        var candidate = File(root, "Untitled.kt")
+                        var suffix = 1
+                        while (candidate.exists()) {
+                            candidate = File(root, "Untitled-$suffix.kt")
+                            suffix++
+                        }
+                        candidate
+                    }
+                    val canonicalTarget = target.canonicalFile
+                    check(canonicalTarget.toPath().startsWith(root.canonicalFile.toPath())) {
+                        "File is outside the workspace"
+                    }
+                    canonicalTarget.parentFile?.mkdirs()
+                    canonicalTarget.writeText(snapshot)
+                    check(
+                        preferences.edit()
+                            .putString(KEY_SOURCE, snapshot)
+                            .putString(KEY_SELECTED_PREVIEW, selectedPreviewName)
+                            .putBoolean(KEY_SHOW_PREVIEW, showPreview)
+                            .commit()
+                    ) { "Unable to persist editor session" }
+                    canonicalTarget
+                }
+            }
+            savedFile.onSuccess { file ->
+                activeFile = file
+                isDirty = source != snapshot
+                Toast.makeText(context, "Saved ${file.name}", Toast.LENGTH_SHORT).show()
+            }.onFailure { failure ->
+                Toast.makeText(context, "Save failed: ${failure.message ?: "unknown error"}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -201,22 +264,55 @@ private fun ComposeEditorApp() {
         modifier = Modifier.imePadding(),
         topBar = {
             TopAppBar(
-                title = { Text("Compose Editor") },
+                title = {
+                    Column {
+                        Text(activeFile?.name ?: "Untitled", maxLines = 1)
+                        Text(
+                            if (isDirty) "Modified" else "Saved",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isDirty) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
                 navigationIcon = {},
                 actions = {
-                    androidx.compose.material3.TextButton(onClick = { showFileManager = true }) {
-                        Text("Files")
+                    Row(
+                        Modifier.horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconButton(onClick = saveCurrentFile) {
+                            Icon(Icons.Filled.Save, contentDescription = "Save")
+                        }
+                        IconButton(onClick = {
+                            editorController.undo()
+                            canUndo = editorController.canUndo()
+                            canRedo = editorController.canRedo()
+                        }, enabled = canUndo) {
+                            Icon(Icons.Filled.Undo, contentDescription = "Undo")
+                        }
+                        IconButton(onClick = {
+                            editorController.redo()
+                            canUndo = editorController.canUndo()
+                            canRedo = editorController.canRedo()
+                        }, enabled = canRedo) {
+                            Icon(Icons.Filled.Redo, contentDescription = "Redo")
+                        }
+                        IconButton(onClick = { showFileManager = true }) {
+                            Icon(Icons.Filled.FolderOpen, contentDescription = "File explorer")
+                        }
+                        IconButton(onClick = { darkTheme = !darkTheme }) {
+                            Icon(Icons.Filled.Brightness4, contentDescription = "Toggle theme")
+                        }
+                        IconButton(
+                            onClick = {
+                                previewResult = ComposeSourceEngine.parse(source, selectedPreviewName)
+                                showPreview = !showPreview
+                            },
+                            modifier = Modifier.padding(end = 4.dp),
+                        ) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = "Preview")
+                        }
                     }
-                    androidx.compose.material3.TextButton(onClick = { darkTheme = !darkTheme }) {
-                        Text(if (darkTheme) "Light" else "Dark")
-                    }
-                    Button(
-                        onClick = {
-                            previewResult = ComposeSourceEngine.parse(source, selectedPreviewName)
-                            showPreview = !showPreview
-                        },
-                        modifier = Modifier.padding(end = 8.dp),
-                    ) { Text("Preview") }
                 },
             )
         },
@@ -230,10 +326,16 @@ private fun ComposeEditorApp() {
                     source = source,
                     onSourceChange = { updated ->
                         source = updated
+                        isDirty = true
                         if (showPreview) previewResult = ComposeSourceEngine.parse(updated, selectedPreviewName)
                     },
                     diagnostics = diagnostics,
                     darkTheme = darkTheme,
+                    controller = editorController,
+                    onHistoryChanged = { undoAvailable, redoAvailable ->
+                        canUndo = undoAvailable
+                        canRedo = redoAvailable
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -250,10 +352,23 @@ private fun ComposeEditorApp() {
                 onOpenFile = { file, contents ->
                     activeFile = file
                     source = contents
+                    isDirty = false
+                    canUndo = false
+                    canRedo = false
                     selectedPreviewName = null
                 },
                 onFilePathChanged = { previous, updated ->
-                    if (activeFile?.canonicalFile == previous.canonicalFile) activeFile = updated
+                    val openPath = activeFile?.canonicalFile?.toPath()
+                    val previousPath = previous.canonicalFile.toPath()
+                    if (openPath != null && (openPath == previousPath || openPath.startsWith(previousPath))) {
+                        activeFile = if (updated == null) {
+                            isDirty = true
+                            null
+                        } else {
+                            val relative = previousPath.relativize(openPath)
+                            File(updated.canonicalFile.toPath().resolve(relative).toFile().path)
+                        }
+                    }
                 },
                 onClose = { showFileManager = false },
             )
