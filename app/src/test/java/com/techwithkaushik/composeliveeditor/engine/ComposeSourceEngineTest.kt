@@ -10,7 +10,7 @@ class ComposeSourceEngineTest {
         val hasPreviewAnnotation = source.contains("Preview")
         val composableCount = Regex("@Composable\\b").findAll(source).count()
         val prepared = if (!hasPreviewAnnotation && composableCount == 1) {
-            source.replaceFirst("@Composable", "@Preview\n@Composable")
+            source.replaceFirst("@Composable", "@Preview @Composable")
         } else {
             source
         }
