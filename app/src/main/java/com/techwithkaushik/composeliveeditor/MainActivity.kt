@@ -60,6 +60,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 import com.techwithkaushik.composeliveeditor.engine.ComposePreviewContent
 import com.techwithkaushik.composeliveeditor.engine.ComposeSourceEngine
 import com.techwithkaushik.composeliveeditor.engine.PreviewParseResult
@@ -117,6 +120,9 @@ private fun ComposeEditorApp() {
     var selectedPreviewName by remember {
         mutableStateOf(preferences.getString(KEY_SELECTED_PREVIEW, null))
     }
+    var showFileManager by rememberSaveable { mutableStateOf(false) }
+    var activeFile by remember { mutableStateOf<File?>(null) }
+    val workspaceDirectory = remember(context) { File(context.filesDir, "workspace").apply { mkdirs() } }
     var darkTheme by rememberSaveable { mutableStateOf(false) }
     val currentSource = rememberUpdatedState(source)
     val currentPreviewName = rememberUpdatedState(selectedPreviewName)
@@ -134,6 +140,19 @@ private fun ComposeEditorApp() {
     LaunchedEffect(source, selectedPreviewName, showPreview) {
         delay(350)
         persistSession(false)
+    }
+
+    LaunchedEffect(source, activeFile) {
+        val file = activeFile ?: return@LaunchedEffect
+        delay(450)
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val root = workspaceDirectory.canonicalFile.toPath()
+                val target = file.canonicalFile.toPath()
+                check(target.startsWith(root)) { "File is outside the workspace" }
+                file.writeText(source)
+            }
+        }
     }
 
     // Flush the latest editor session when the app goes to the background or
@@ -158,7 +177,9 @@ private fun ComposeEditorApp() {
     }
 
     val diagnostics = remember(source) { ComposeEditorLanguageTools.analyze(source) }
-    BackHandler(enabled = showPreview) { showPreview = false }
+    BackHandler(enabled = showFileManager || showPreview) {
+        if (showFileManager) showFileManager = false else showPreview = false
+    }
 
     MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()) {
     Scaffold(
@@ -168,6 +189,9 @@ private fun ComposeEditorApp() {
                 title = { Text("Compose Editor") },
                 navigationIcon = {},
                 actions = {
+                    androidx.compose.material3.TextButton(onClick = { showFileManager = true }) {
+                        Text("Files")
+                    }
                     androidx.compose.material3.TextButton(onClick = { darkTheme = !darkTheme }) {
                         Text(if (darkTheme) "Light" else "Dark")
                     }
@@ -205,6 +229,15 @@ private fun ComposeEditorApp() {
                     selectedPreviewName = name
                     previewResult = ComposeSourceEngine.parse(source, name)
                 },
+            )
+            if (showFileManager) FileManagerDrawer(
+                rootDirectory = workspaceDirectory,
+                onOpenFile = { file, contents ->
+                    activeFile = file
+                    source = contents
+                    selectedPreviewName = null
+                },
+                onClose = { showFileManager = false },
             )
         }
     }
