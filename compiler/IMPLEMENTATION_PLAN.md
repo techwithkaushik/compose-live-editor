@@ -6,14 +6,15 @@ Preview discovery now requires explicit `@Preview` plus `@Composable`. Plain com
 
 ## Work sequence
 
-1. **Compiler feasibility gate:** validate an Android-compatible Kotlin compiler and matching Compose compiler plugin on physical ARM32 ART. Measure startup, memory and output.
-2. **Project model:** resolve all Kotlin source files, Gradle dependencies, imports, symbols and module classpaths.
-3. **Compilation:** compile the selected project source set with Compose transformation and actionable diagnostics.
-4. **DEX pipeline:** run D8 against Android APIs and the exact Compose artifacts used by the host app.
-5. **Isolated execution:** load generated DEX in a restricted process/class loader and invoke only discovered preview entry points.
-6. **Real preview host:** render with the actual Compose runtime, including nested/custom composables, Material 2/3, modifiers, state, recomposition, themes and preview parameters.
-7. **Incremental updates:** cancel stale builds, debounce edits, cache dependency/compiler outputs and refresh previews safely.
-8. **Validation:** run a fixture matrix covering arbitrary imports, multiple preview functions, helper composables, state, callbacks, parameter providers, compile errors and runtime exceptions on ARM32 devices.
+1. **Safe interactive interpreter gate:** typed state declarations, text-field bindings, literal assignments and Boolean self-toggle are supported without executing arbitrary callback code. Continue expanding this bounded subset with source-located tests.
+2. **Compiler feasibility gate:** validate an Android-compatible Kotlin compiler and matching Compose compiler plugin on physical ARM32 ART. Measure startup, memory and output.
+3. **Project model:** resolve all Kotlin source files, Gradle dependencies, imports, symbols and module classpaths.
+4. **Compilation:** compile the selected project source set with Compose transformation and actionable diagnostics.
+5. **DEX pipeline:** run D8 against Android APIs and the exact Compose artifacts used by the host app.
+6. **Isolated execution:** load generated DEX in a restricted process/class loader and invoke only discovered preview entry points.
+7. **Real preview host:** render with the actual Compose runtime, including nested/custom composables, Material 2/3, modifiers, state, recomposition, themes and preview parameters.
+8. **Incremental updates:** cancel stale builds, debounce edits, cache dependency/compiler outputs and refresh previews safely.
+9. **Validation:** run a fixture matrix covering arbitrary imports, multiple preview functions, helper composables, state, callbacks, parameter providers, compile errors and runtime exceptions on ARM32 devices.
 
 ## Workspace file manager
 

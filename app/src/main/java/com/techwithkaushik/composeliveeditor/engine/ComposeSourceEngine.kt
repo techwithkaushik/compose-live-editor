@@ -23,6 +23,9 @@ sealed interface PreviewAction {
     data class Add(override val stateName: String, val amount: Int) : PreviewAction
     data class Subtract(override val stateName: String, val amount: Int) : PreviewAction
     data class Assign(override val stateName: String, val value: Int) : PreviewAction
+    data class AssignText(override val stateName: String, val value: String) : PreviewAction
+    data class AssignBoolean(override val stateName: String, val value: Boolean) : PreviewAction
+    data class ToggleBoolean(override val stateName: String) : PreviewAction
 }
 data class PreviewState(val name: String, val initialValue: Int = 0, val initialText: String? = null, val initialBoolean: Boolean? = null)
 data class SourceDiagnostic(val message: String, val line: Int, val column: Int)
@@ -462,6 +465,12 @@ object ComposeSourceEngine {
                         .find(args)?.groupValues?.get(1)
                     val visibilityState = Regex("""if\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)""")
                         .find(args)?.groupValues?.get(1)
+                    if (stateName != null && !states.containsKey(stateName)) {
+                        fail("TextField references unknown state variable '$stateName'", name)
+                    }
+                    if (visibilityState != null && !states.containsKey(visibilityState)) {
+                        fail("Password visibility references unknown state variable '$visibilityState'", name)
+                    }
                     PreviewNode.TextField(label, stateName, args.contains("PasswordVisualTransformation"), visibilityState)
                 }
                 "Column", "Row", "Box" -> {
@@ -544,8 +553,25 @@ object ComposeSourceEngine {
                     expect("=")
                     PreviewAction.Subtract(state.text, signedInteger("Expected integer after -="))
                 }
-                match("=") -> PreviewAction.Assign(state.text, signedInteger("Expected integer assignment"))
-                else -> fail("Use ++, --, += Int, -= Int, or = Int in Button callbacks", current())
+                match("=") -> when {
+                    current().kind == Kind.STRING -> {
+                        val value = advance().value
+                        PreviewAction.AssignText(state.text, value)
+                    }
+                    checkIdentifier("true") || checkIdentifier("false") -> {
+                        val value = advance().text == "true"
+                        PreviewAction.AssignBoolean(state.text, value)
+                    }
+                    match("!") -> {
+                        val source = identifier("Expected Boolean state after !")
+                        if (source.text != state.text) {
+                            fail("Boolean toggle must reference the same state variable", source)
+                        }
+                        PreviewAction.ToggleBoolean(state.text)
+                    }
+                    else -> PreviewAction.Assign(state.text, signedInteger("Expected integer, string, or Boolean assignment"))
+                }
+                else -> fail("Use ++, --, += Int, -= Int, or assign an integer, string, or Boolean literal in Button callbacks", current())
             }
         }
 

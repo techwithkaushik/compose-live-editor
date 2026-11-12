@@ -81,6 +81,9 @@ fun ComposePreviewContent(node: PreviewNode, states: Map<String, MutableState<An
                         is PreviewAction.Add -> state.value = ((state.value as? Int) ?: 0) + action.amount
                         is PreviewAction.Subtract -> state.value = ((state.value as? Int) ?: 0) - action.amount
                         is PreviewAction.Assign -> state.value = action.value
+                        is PreviewAction.AssignText -> state.value = action.value
+                        is PreviewAction.AssignBoolean -> state.value = action.value
+                        is PreviewAction.ToggleBoolean -> state.value = !((state.value as? Boolean) ?: false)
                     }
                 }
             }

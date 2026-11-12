@@ -33,3 +33,14 @@ The existing stock Kotlin/JVM compiler experiment cannot run as-is on stock Andr
 - Cold/warm latency, peak memory and APK size are measured.
 
 Keep compilation and execution behind interfaces so the backend can move to an isolated process. Do not use Termux, remote source compilation, fake Java SE classes, or weakened SELinux as shortcuts.
+
+
+## Safe interactive state subset
+
+The interpreter supports remember with mutableIntStateOf or mutableStateOf for integer, string, and Boolean values, text interpolation from declared state, and controlled TextField/OutlinedTextField bindings to declared string state. Button callbacks are never executed as Kotlin. Only these parsed state operations are translated into explicit preview actions:
+
+- Integer increment/decrement and += / -=.
+- Integer, string, and Boolean literal assignment.
+- Boolean self-toggle (visible = !visible).
+
+Unknown text-field state bindings are rejected with a source diagnostic. Unsupported callback code remains an inert no-op; this is not arbitrary callback execution or general Kotlin expression evaluation.

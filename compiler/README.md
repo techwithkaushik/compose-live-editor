@@ -12,8 +12,8 @@ The current interpreter does not execute arbitrary Kotlin, compile bytecode, or 
 
 ## Required next gates
 
-- Safe literal/state expression evaluation and source-defined click actions.
-- More Compose components and modifier support.
+- Safe typed state updates for integer, string, and Boolean literals, including Boolean toggles in source-defined click actions.
+- Broader Compose component and modifier support.
 - Incremental parsing and preview debounce.
 - ARM32 physical-device validation with memory/latency measurements.
 - A separately proven Android-compatible compiler backend if general Kotlin execution is required.
