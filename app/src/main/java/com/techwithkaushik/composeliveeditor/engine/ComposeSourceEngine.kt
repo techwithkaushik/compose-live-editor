@@ -72,6 +72,15 @@ object ComposeSourceEngine {
         var pendingPreview = false
         while (index < tokens.size - 1) {
             val token = tokens[index]
+            // Imports are declarations, not preview-body syntax. Skip the complete
+            // line so explicit and wildcard imports (for example runtime.*) are
+            // accepted without their package segments affecting annotation state.
+            if (token.kind == Kind.IDENTIFIER && token.text in setOf("package", "import")) {
+                val declarationLine = token.line
+                index++
+                while (index < tokens.size - 1 && tokens[index].line == declarationLine) index++
+                continue
+            }
             if (token.text == "@") {
                 index++
                 val annotation = tokens.getOrNull(index)?.text.orEmpty()
