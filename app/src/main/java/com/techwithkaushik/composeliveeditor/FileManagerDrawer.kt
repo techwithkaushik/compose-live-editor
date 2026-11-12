@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -50,6 +52,7 @@ internal fun FileManagerDrawer(
     var selectedFile by remember { mutableStateOf<File?>(null) }
     var inputName by remember { mutableStateOf("") }
     var operationError by remember { mutableStateOf<String?>(null) }
+    var menuFile by remember { mutableStateOf<File?>(null) }
 
     fun isInsideRoot(file: File): Boolean {
         val root = rootDirectory.canonicalFile.toPath()
@@ -73,12 +76,20 @@ internal fun FileManagerDrawer(
                     Text("File Manager", style = MaterialTheme.typography.titleLarge)
                     TextButton(onClick = onClose) { Text("Close") }
                 }
+                val relativeDirectory = runCatching { currentDirectory.relativeTo(rootDirectory).path }.getOrDefault("")
                 Text(
-                    currentDirectory.relativeTo(rootDirectory).path.let { if (it.isBlank()) "/" else "/$it" },
+                    if (relativeDirectory.isBlank()) "/workspace" else "/workspace/$relativeDirectory",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                 )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = {
+                        currentDirectory = rootDirectory
+                        refreshKey++
+                    }) { Text("Root") }
+                    TextButton(onClick = { refreshKey++ }) { Text("Refresh") }
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = {
                         dialogMode = FileDialogMode.NEW_FILE
@@ -97,7 +108,7 @@ internal fun FileManagerDrawer(
                         refreshKey++
                     }) { Text("↑  Parent folder") }
                 }
-                Text("Long-press an item for rename or delete", style = MaterialTheme.typography.labelSmall)
+                Text("Tap to open • use ⋮ for file actions", style = MaterialTheme.typography.labelSmall)
                 val children = remember(currentDirectory, refreshKey) {
                     currentDirectory.listFiles()?.sortedWith(
                         compareBy<File> { !it.isDirectory }.thenBy { it.name.lowercase() }
@@ -140,7 +151,40 @@ internal fun FileManagerDrawer(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
-                                Text("⋮", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Box {
+                                    TextButton(
+                                        onClick = {
+                                            selectedFile = file
+                                            inputName = file.name
+                                            operationError = null
+                                            menuFile = file
+                                        },
+                                    ) { Text("⋮") }
+                                    DropdownMenu(
+                                        expanded = menuFile == file,
+                                        onDismissRequest = { menuFile = null },
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Rename") },
+                                            onClick = {
+                                                menuFile = null
+                                                selectedFile = file
+                                                inputName = file.name
+                                                operationError = null
+                                                dialogMode = FileDialogMode.RENAME
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                            onClick = {
+                                                menuFile = null
+                                                selectedFile = file
+                                                operationError = null
+                                                dialogMode = FileDialogMode.DELETE
+                                            },
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -210,12 +254,25 @@ internal fun FileManagerDrawer(
                                 check(validName) { "Enter a valid name" }
                                 val destination = File(target.parentFile, inputName)
                                 check(!destination.exists()) { "An item with this name already exists" }
+                                val oldPath = target.canonicalFile.toPath()
+                                val currentPath = currentDirectory.canonicalFile.toPath()
                                 check(target.renameTo(destination)) { "Unable to rename item" }
+                                if (currentPath == oldPath || currentPath.startsWith(oldPath)) {
+                                    currentDirectory = File(
+                                        destination.canonicalFile.toPath()
+                                            .resolve(oldPath.relativize(currentPath)).toFile().path
+                                    )
+                                }
                                 onFilePathChanged(target, destination)
                             }
                             FileDialogMode.DELETE -> {
                                 check(target != null && isInsideRoot(target) && target != rootDirectory) { "Invalid file selection" }
+                                val targetPath = target.canonicalFile.toPath()
+                                val currentPath = currentDirectory.canonicalFile.toPath()
                                 check(target.deleteRecursively()) { "Unable to delete item" }
+                                if (currentPath == targetPath || currentPath.startsWith(targetPath)) {
+                                    currentDirectory = target.parentFile ?: rootDirectory
+                                }
                                 onFilePathChanged(target, null)
                             }
                         }
