@@ -7,6 +7,7 @@ sealed interface PreviewNode {
     data class Row(val children: List<PreviewNode>) : PreviewNode
     data class Box(val children: List<PreviewNode>) : PreviewNode
     data class Text(val value: String) : PreviewNode
+    data class TextField(val label: String, val password: Boolean = false) : PreviewNode
     data class Button(val children: List<PreviewNode>, val actions: List<PreviewAction>, val style: ButtonStyle = ButtonStyle.FILLED) : PreviewNode
     data class Card(val children: List<PreviewNode>) : PreviewNode
     data class Surface(val children: List<PreviewNode>) : PreviewNode
@@ -376,6 +377,19 @@ object ComposeSourceEngine {
                     }
                     PreviewNode.Text(value.value)
                 }
+                "OutlinedTextField", "TextField" -> {
+                    expect("(")
+                    val start = index
+                    val close = matchingToken(tokens, start - 1, "(", ")")
+                    val args = tokens.subList(start, close).joinToString(" ") { it.text }
+                    index = close + 1
+                    val label = Regex("""label\\s*=\\s*\\{\\s*Text\\s*\\(\\s*"([^"]*)"""")
+                        .find(args)?.groupValues?.get(1)
+                        ?: Regex("""placeholder\\s*=\\s*\\{\\s*Text\\s*\\(\\s*"([^"]*)"""")
+                            .find(args)?.groupValues?.get(1)
+                        ?: "Input"
+                    PreviewNode.TextField(label, args.contains("PasswordVisualTransformation"))
+                }
                 "Column", "Row", "Box" -> {
                     if (match("(")) expect(")")
                     val children = children(depth)
@@ -412,15 +426,24 @@ object ComposeSourceEngine {
                 "Button", "OutlinedButton", "TextButton" -> {
                     expect("(")
                     val callback = identifier("Button only supports an onClick callback")
-                    if (callback.text != "onClick") fail("Button only supports onClick state actions", callback)
+                    if (callback.text != "onClick") fail("Button only supports onClick callbacks", callback)
                     expect("="); expect("{")
+                    val callbackOpen = index - 1
+                    val callbackClose = matchingToken(tokens, callbackOpen, "{", "}")
                     val actions = ArrayList<PreviewAction>()
-                    while (!check("}") && !end()) {
-                        if (match(";")) continue
-                        actions += action()
-                        if (actions.size > MAX_ACTIONS) fail("Button supports at most $MAX_ACTIONS actions", previous())
+                    val callbackEnd = index
+                    try {
+                        while (index < callbackClose) {
+                            if (match(";")) continue
+                            actions += action()
+                            if (actions.size > MAX_ACTIONS) fail("Button supports at most $MAX_ACTIONS actions", previous())
+                        }
+                    } catch (_: ParseFailure) {
+                        // Arbitrary application callbacks are intentionally inert in preview.
+                        actions.clear()
                     }
-                    expect("}"); expect(")")
+                    index = callbackClose + 1
+                    expect(")")
                     val style = when (name.text) { "OutlinedButton" -> ButtonStyle.OUTLINED; "TextButton" -> ButtonStyle.TEXT; else -> ButtonStyle.FILLED }
                     PreviewNode.Button(children(depth), actions, style)
                 }
@@ -460,6 +483,10 @@ object ComposeSourceEngine {
             val result = ArrayList<PreviewNode>()
             while (!check("}") && !end()) {
                 if (match(";")) continue
+                if (checkIdentifier("var") || checkIdentifier("val")) {
+                    stateDeclaration()
+                    continue
+                }
                 result += node(depth + 1)
             }
             expect("}")
