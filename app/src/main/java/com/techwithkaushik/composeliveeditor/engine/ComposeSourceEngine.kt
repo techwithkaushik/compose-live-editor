@@ -114,6 +114,15 @@ object ComposeSourceEngine {
                 }
                 while (cursor < tokens.size && tokens[cursor].text != "{" && tokens[cursor].kind != Kind.EOF) cursor++
                 if (cursor >= tokens.size || tokens[cursor].text != "{") {
+                    if (pendingPreview) {
+                        throw ParseFailure(
+                            SourceDiagnostic(
+                                "The @Preview function is missing its body. Use fun ScreenPreview() { Screen() }.",
+                                token.line,
+                                token.column,
+                            ),
+                        )
+                    }
                     pendingComposable = false
                     pendingPreview = false
                     index++
