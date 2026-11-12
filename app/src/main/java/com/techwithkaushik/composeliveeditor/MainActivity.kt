@@ -144,6 +144,21 @@ private fun ComposeEditorApp() {
         persistSession(false)
     }
 
+    LaunchedEffect(workspaceDirectory) {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                if (!workspaceDirectory.exists()) workspaceDirectory.mkdirs()
+                val starterFile = File(workspaceDirectory, "Main.kt")
+                if (!starterFile.exists()) starterFile.writeText(STARTER_SOURCE)
+                starterFile
+            }
+        }.onSuccess { result ->
+            result.getOrNull()?.let { starterFile ->
+                if (activeFile == null && source == STARTER_SOURCE) activeFile = starterFile
+            }
+        }
+    }
+
     LaunchedEffect(source, activeFile) {
         val file = activeFile ?: return@LaunchedEffect
         delay(450)
