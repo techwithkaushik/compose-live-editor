@@ -325,9 +325,12 @@ object ComposeSourceEngine {
                     var root: PreviewNode? = null
                     while (!check("}") && !end()) {
                         if (match(";")) continue
-                        if (checkIdentifier("var") || checkIdentifier("val")) {
+                        if (checkIdentifier("var")) {
                             if (root != null) fail("State declarations must appear before the root layout", current())
                             stateDeclaration()
+                        } else if (checkIdentifier("val") || checkIdentifier("fun")) {
+                            if (root != null) fail("Only one root layout is supported", current())
+                            skipLocalDeclaration()
                         } else {
                             if (root != null) fail("The entry point must contain exactly one root layout", current())
                             root = node(0)
@@ -345,6 +348,38 @@ object ComposeSourceEngine {
                 } else fail("Expected package, import, @Composable, or fun declaration", current())
             }
             fail("No @Composable entry point was found", current())
+        }
+
+        /**
+         * Local calculations and event-handler functions are app logic, not preview UI.
+         * Skip them without evaluating their expressions or invoking callbacks. Stop at
+         * the first top-level Compose layout, which is the declarative preview root.
+         */
+        private fun skipLocalDeclaration() {
+            advance() // val or fun
+            var parentheses = 0
+            var braces = 0
+            var brackets = 0
+            while (!end()) {
+                val token = current()
+                if (parentheses == 0 && braces == 0 && brackets == 0 &&
+                    token.kind == Kind.IDENTIFIER && token.text in setOf("Column", "Row", "Box")
+                ) {
+                    return
+                }
+                when (token.text) {
+                    "(" -> parentheses++
+                    ")" -> parentheses = (parentheses - 1).coerceAtLeast(0)
+                    "{" -> braces++
+                    "}" -> {
+                        if (braces == 0 && parentheses == 0 && brackets == 0) return
+                        braces = (braces - 1).coerceAtLeast(0)
+                    }
+                    "[" -> brackets++
+                    "]" -> brackets = (brackets - 1).coerceAtLeast(0)
+                }
+                advance()
+            }
         }
 
         private fun stateDeclaration() {
