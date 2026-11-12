@@ -73,24 +73,24 @@ class ComposeSourceEngineTest {
     fun parsesSafeStringAndBooleanButtonActions() {
         val result = parseSource(
             """@Composable fun Login() {
-                var email by remember { mutableStateOf(\"\") }
+                var email by remember { mutableStateOf("") }
                 var passwordVisible by remember { mutableStateOf(false) }
                 Column {
-                    Text(\"Login\")
-                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text(\"Email\") })
-                    Button(onClick = { email = \"demo@example.com\"; passwordVisible = !passwordVisible }) {
-                        Text(\"Fill and toggle\")
+                    Text("Login")
+                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") })
+                    Button(onClick = { email = "demo@example.com"; passwordVisible = !passwordVisible }) {
+                        Text("Fill and toggle")
                     }
-                    Button(onClick = { passwordVisible = true }) { Text(\"Show password\") }
+                    Button(onClick = { passwordVisible = true }) { Text("Show password") }
                 }
             }""",
         )
-        assertTrue(\"Expected safe typed actions, got $result\", result is PreviewParseResult.Success)
+        assertTrue("Expected safe typed actions, got $result", result is PreviewParseResult.Success)
         val success = result as PreviewParseResult.Success
         assertEquals(
             listOf(
-                PreviewState(\"email\", initialText = \"\"),
-                PreviewState(\"passwordVisible\", initialBoolean = false),
+                PreviewState("email", initialText = ""),
+                PreviewState("passwordVisible", initialBoolean = false),
             ),
             success.states,
         )
@@ -98,22 +98,22 @@ class ComposeSourceEngineTest {
         val fill = root.children[2] as PreviewNode.Button
         assertEquals(
             listOf(
-                PreviewAction.AssignText(\"email\", \"demo@example.com\"),
-                PreviewAction.ToggleBoolean(\"passwordVisible\"),
+                PreviewAction.AssignText("email", "demo@example.com"),
+                PreviewAction.ToggleBoolean("passwordVisible"),
             ),
             fill.actions,
         )
         val show = root.children[3] as PreviewNode.Button
-        assertEquals(listOf(PreviewAction.AssignBoolean(\"passwordVisible\", true)), show.actions)
+        assertEquals(listOf(PreviewAction.AssignBoolean("passwordVisible", true)), show.actions)
     }
 
     @Test
     fun rejectsTextFieldBindingsToUnknownState() {
         val result = parseSource(
-            \"\"\"@Composable fun Login() { Column { OutlinedTextField(value = missing, onValueChange = { }) } }\"\"\",
+            """@Composable fun Login() { Column { OutlinedTextField(value = missing, onValueChange = { }) } }""",
         )
         assertTrue(result is PreviewParseResult.Failure)
-        assertTrue((result as PreviewParseResult.Failure).diagnostic.message.contains(\"unknown state\"))
+        assertTrue((result as PreviewParseResult.Failure).diagnostic.message.contains("unknown state"))
     }
 
     @Test
