@@ -118,14 +118,14 @@ private fun ComposeEditorApp() {
         mutableStateOf(preferences.getString(KEY_SELECTED_PREVIEW, null))
     }
     var darkTheme by rememberSaveable { mutableStateOf(false) }
-    val currentSource by rememberUpdatedState(source)
-    val currentPreviewName by rememberUpdatedState(selectedPreviewName)
-    val currentShowPreview by rememberUpdatedState(showPreview)
+    val currentSource = rememberUpdatedState(source)
+    val currentPreviewName = rememberUpdatedState(selectedPreviewName)
+    val currentShowPreview = rememberUpdatedState(showPreview)
     val persistSession = {
         preferences.edit()
-            .putString(KEY_SOURCE, currentSource)
-            .putString(KEY_SELECTED_PREVIEW, currentPreviewName)
-            .putBoolean(KEY_SHOW_PREVIEW, currentShowPreview)
+            .putString(KEY_SOURCE, currentSource.value)
+            .putString(KEY_SELECTED_PREVIEW, currentPreviewName.value)
+            .putBoolean(KEY_SHOW_PREVIEW, currentShowPreview.value)
             .apply()
     }
 
