@@ -113,7 +113,7 @@ internal fun FileManagerDrawer(
                             Row(
                                 Modifier.fillMaxWidth().combinedClickable(
                                     onClick = {
-                                        if (file.isDirectory) {
+                                        if (file.isDirectory && isInsideRoot(file)) {
                                             currentDirectory = file
                                             refreshKey++
                                         } else if (file.isFile && isInsideRoot(file)) {
@@ -192,12 +192,14 @@ internal fun FileManagerDrawer(
                     runCatching {
                         when (mode) {
                             FileDialogMode.NEW_FILE -> {
+                                check(isInsideRoot(currentDirectory)) { "Current folder is outside the workspace" }
                                 check(validName) { "Enter a valid file name" }
                                 val created = File(currentDirectory, inputName)
                                 check(!created.exists()) { "An item with this name already exists" }
                                 check(created.createNewFile()) { "Unable to create file" }
                             }
                             FileDialogMode.NEW_FOLDER -> {
+                                check(isInsideRoot(currentDirectory)) { "Current folder is outside the workspace" }
                                 check(validName) { "Enter a valid folder name" }
                                 val created = File(currentDirectory, inputName)
                                 check(!created.exists()) { "An item with this name already exists" }
