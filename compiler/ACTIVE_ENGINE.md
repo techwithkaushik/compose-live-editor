@@ -44,3 +44,14 @@ The interpreter supports remember with mutableIntStateOf or mutableStateOf for i
 - Boolean self-toggle (visible = !visible).
 
 Unknown text-field state bindings are rejected with a source diagnostic. Unsupported callback code remains an inert no-op; this is not arbitrary callback execution or general Kotlin expression evaluation.
+
+
+## Compiler pipeline contract
+
+`app/.../compiler/PreviewCompilationPipeline.kt` now defines the strict compiler-backed flow:
+
+1. `KotlinComposeCompilerBackend` compiles workspace source with the matching Compose compiler transformation.
+2. `AndroidDexBackend` converts the compiler artifact to DEX for the requested Android API floor.
+3. `AndroidPreviewRuntimeBackend` loads the DEX and resolves the selected preview entry point.
+
+The pipeline validates workspace-relative source paths, carries source diagnostics, stops on the first failed stage, and returns an explicit unavailable result when a backend is not installed. It intentionally has no interpreter fallback. These are interfaces and orchestration, not concrete compiler/D8/runtime implementations; the existing editor Preview action still uses the bounded interpreter.

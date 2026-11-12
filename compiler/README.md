@@ -1,19 +1,28 @@
 # Embedded Kotlin compiler and active preview engine
 
-The first usable preview milestone is implemented as a bounded on-device source interpreter in `app/.../engine`. It parses a small declarative Compose subset and renders immutable preview nodes with the real Compose runtime.
+The app currently has a bounded source interpreter and a separately defined compiler-backed pipeline contract.
 
-See [ACTIVE_ENGINE.md](ACTIVE_ENGINE.md) for the exact supported syntax and limitations.
+See [ACTIVE_ENGINE.md](ACTIVE_ENGINE.md) for the active interpreter limits and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the remaining compiler gates.
 
-## Why the interpreter is separate from the compiler experiment
+## Current implementation
 
-The stock Kotlin/JVM compiler spike cannot execute on stock Android ART because `java.lang.management.ManagementFactory` is absent. Do not fake Java SE classes in `java.*`, or report skipped tests as successful compilation.
+- The bounded interpreter parses a small declarative Compose subset and renders nodes with the real Compose runtime.
+- Typed state updates and text-field bindings are supported only for the documented safe subset.
+- `PreviewCompilationPipeline` defines explicit Kotlin + Compose compile, D8 conversion, and Android runtime loading stages.
+- Each stage has a typed result and diagnostics. Missing backends are reported as unavailable.
+- A failed compiler stage stops the pipeline. It never silently falls back to the interpreter and reports a false compiler success.
 
-The current interpreter does not execute arbitrary Kotlin, compile bytecode, or load generated code. It reports unsupported syntax with line/column diagnostics. This bounded implementation is the first real source-to-render path, not full Kotlin compatibility.
+## Why there is no production compiler backend yet
 
-## Required next gates
+The stock Kotlin/JVM compiler experiment cannot execute on stock Android ART because `java.lang.management.ManagementFactory` is absent. Do not fake Java SE classes in `java.*`, report skipped tests as successful compilation, or bundle the full compiler dependency graph before proving ART compatibility.
 
-- Safe typed state updates for integer, string, and Boolean literals, including Boolean toggles in source-defined click actions.
-- Broader Compose component and modifier support.
-- Incremental parsing and preview debounce.
-- ARM32 physical-device validation with memory/latency measurements.
-- A separately proven Android-compatible compiler backend if general Kotlin execution is required.
+The pipeline contracts are orchestration only. No Android-compatible Kotlin compiler, Compose compiler transformation, D8 implementation, or generated-code runtime loader is registered yet. Therefore the app's regular Preview action continues to use the bounded interpreter.
+
+## Remaining gates
+
+- Prove an Android-compatible Kotlin compiler and matching Compose compiler plugin on physical ARM32 ART.
+- Implement and validate D8 conversion against the Android platform and host Compose classpath.
+- Implement isolated DEX loading and safe invocation of transformed composable entry points.
+- Resolve workspace source sets, Gradle dependencies, imports, symbols and module classpaths.
+- Add cancellation, stale-result rejection and incremental compilation.
+- Measure cold/warm latency, peak memory and APK size on the target device.
