@@ -413,7 +413,25 @@ class ComposeSourceEngineTest {
                             PasswordVisualTransformation()
                         }
                     )
-                    Text("Email: $email")
+                    Text("Email: ${'
+                }
+            }
+        """.trimIndent()
+
+        val result = ComposeSourceEngine.parse(source)
+        assertTrue("Expected editable form preview, got $result", result is PreviewParseResult.Success)
+        val success = result as PreviewParseResult.Success
+        assertEquals("", success.states.first { it.name == "email" }.initialText)
+        assertEquals("", success.states.first { it.name == "password" }.initialText)
+        assertEquals(false, success.states.first { it.name == "passwordVisible" }.initialBoolean)
+        val children = (success.content as PreviewNode.Column).children
+        assertEquals("email", (children[0] as PreviewNode.TextField).stateName)
+        assertEquals("password", (children[1] as PreviewNode.TextField).stateName)
+        assertEquals("passwordVisible", (children[1] as PreviewNode.TextField).passwordVisibleStateName)
+    }
+
+}
+}email")
                 }
             }
         """.trimIndent()
