@@ -245,4 +245,125 @@ class ComposeSourceEngineTest {
         )
     }
 
+    @Test
+    fun parsesLoginScreenWithRealWorldImportsAndLocalLogic() {
+        val source = """
+            import androidx.compose.foundation.layout.*
+            import androidx.compose.foundation.text.KeyboardActions
+            import androidx.compose.foundation.text.KeyboardOptions
+            import androidx.compose.material.icons.Icons
+            import androidx.compose.material.icons.filled.Visibility
+            import androidx.compose.material.icons.filled.VisibilityOff
+            import androidx.compose.material3.*
+            import androidx.compose.runtime.*
+            import androidx.compose.ui.Alignment
+            import androidx.compose.ui.Modifier
+            import androidx.compose.ui.text.input.ImeAction
+            import androidx.compose.ui.text.input.KeyboardType
+            import androidx.compose.ui.text.input.PasswordVisualTransformation
+            import androidx.compose.ui.text.input.VisualTransformation
+            import androidx.compose.ui.unit.dp
+
+            @Composable
+            fun SimpleLoginScreen(
+                onLoginClick: (email: String, password: String) -> Unit
+            ) {
+                var email by remember { mutableStateOf("") }
+                var password by remember { mutableStateOf("") }
+                var passwordVisible by remember { mutableStateOf(false) }
+                var emailError by remember { mutableStateOf(false) }
+
+                val isEmailValid = android.util.Patterns.EMAIL_ADDRESS
+                    .matcher(email.trim())
+                    .matches()
+
+                val canLogin = isEmailValid && password.isNotBlank()
+
+                fun login() {
+                    if (canLogin) {
+                        onLoginClick(email.trim(), password)
+                    }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Login",
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = {
+                            email = it
+                            emailError = false
+                        },
+                        label = { Text("Email") },
+                        singleLine = true,
+                        isError = emailError,
+                        supportingText = {
+                            if (emailError) Text("Enter a valid email address")
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.VisibilityOff
+                                    else Icons.Default.Visibility,
+                                    contentDescription = "Toggle password"
+                                )
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(onDone = { login() }),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = {
+                            emailError = !isEmailValid
+                            login()
+                        },
+                        enabled = email.isNotBlank() && password.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Text("Sign In")
+                    }
+                }
+            }
+        """.trimIndent()
+
+        val result = ComposeSourceEngine.parse(source)
+        assertTrue("Expected login screen preview success, got $result", result is PreviewParseResult.Success)
+        val root = (result as PreviewParseResult.Success).content as PreviewNode.Column
+        assertEquals("Login", (root.children[0] as PreviewNode.Text).value)
+        assertEquals("Email", (root.children[1] as PreviewNode.TextField).label)
+        assertEquals("Password", (root.children[3] as PreviewNode.TextField).label)
+        assertTrue(root.children.last() is PreviewNode.Button)
+    }
+
 }
