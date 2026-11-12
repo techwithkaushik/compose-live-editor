@@ -226,7 +226,7 @@ class ComposeSourceEngineTest {
             fun RuntimeWildcardPreview() {
                 var count by remember { mutableIntStateOf(2) }
                 Column {
-                    Text("Count: ${'
+                    Text("Count: ${'$'}count")
                     Button(onClick = { count++ }) { Text("Add") }
                 }
             }
@@ -238,27 +238,7 @@ class ComposeSourceEngineTest {
         assertEquals("RuntimeWildcardPreview", success.entryPoint)
         assertEquals(2, success.states.single().initialValue)
         val root = success.content as PreviewNode.Column
-        assertEquals("Count: " + '$' + "count", (root.children.first() as PreviewNode.Text).value)
-        assertEquals(
-            listOf(PreviewAction.Increment("count")),
-            (root.children.last() as PreviewNode.Button).actions,
-        )
-    }
-
-}
-}count")
-                    Button(onClick = { count++ }) { Text("Add") }
-                }
-            }
-        """.trimIndent()
-
-        val result = ComposeSourceEngine.parse(source)
-        assertTrue("Expected wildcard-import preview success, got $result", result is PreviewParseResult.Success)
-        val success = result as PreviewParseResult.Success
-        assertEquals("RuntimeWildcardPreview", success.entryPoint)
-        assertEquals(2, success.states.single().initialValue)
-        val root = success.content as PreviewNode.Column
-        assertEquals("Count: " + '$' + "count", (root.children.first() as PreviewNode.Text).value)
+        assertEquals("Count: " + 36.toChar() + "count", (root.children.first() as PreviewNode.Text).value)
         assertEquals(
             listOf(PreviewAction.Increment("count")),
             (root.children.last() as PreviewNode.Button).actions,
