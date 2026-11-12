@@ -237,6 +237,9 @@ private fun ComposeEditorApp() {
                     source = contents
                     selectedPreviewName = null
                 },
+                onFilePathChanged = { previous, updated ->
+                    if (activeFile?.canonicalFile == previous.canonicalFile) activeFile = updated
+                },
                 onClose = { showFileManager = false },
             )
         }
