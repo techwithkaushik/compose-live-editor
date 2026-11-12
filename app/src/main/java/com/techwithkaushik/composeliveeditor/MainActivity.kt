@@ -277,7 +277,11 @@ private fun FloatingPreviewWindow(result: PreviewParseResult?, onClose: () -> Un
                     when (result) {
                         is PreviewParseResult.Success -> {
                             val states = remember(result.states) {
-                                result.states.associate { it.name to mutableIntStateOf(it.initialValue) }
+                                result.states.associate { state ->
+                                    state.name to mutableStateOf<Any>(
+                                        state.initialText ?: state.initialBoolean ?: state.initialValue,
+                                    )
+                                }
                             }
                             Column(
                                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(10.dp),
