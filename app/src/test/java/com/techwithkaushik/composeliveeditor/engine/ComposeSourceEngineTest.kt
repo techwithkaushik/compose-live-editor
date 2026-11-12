@@ -63,11 +63,13 @@ class ComposeSourceEngineTest {
     }
 
     @Test
-    fun rejectsUnsupportedButtonStatements() {
+    fun keepsApplicationCallbacksInertInsteadOfExecutingThem() {
         val result = ComposeSourceEngine.parse(
-            """@Composable fun Screen() { var count by remember { mutableIntStateOf(0) }; Column { Button(onClick = { println(count) }) { Text("Run") } } }""",
+            """@Composable fun Screen() { Column { Button(onClick = { submitLogin("a", "b") }, modifier = Modifier.fillMaxWidth()) { Text("Run") } } }""",
         )
-        assertTrue(result is PreviewParseResult.Failure)
+        assertTrue("Expected safe no-op callback, got $result", result is PreviewParseResult.Success)
+        val button = (((result as PreviewParseResult.Success).content as PreviewNode.Column).children.single() as PreviewNode.Button)
+        assertTrue(button.actions.isEmpty())
     }
 
     @Test
@@ -97,11 +99,13 @@ class ComposeSourceEngineTest {
     }
 
     @Test
-    fun rejectsUnsupportedTextArguments() {
+    fun acceptsTextStyleArgumentsWhileRenderingLiteralText() {
         val result = ComposeSourceEngine.parse(
             """@Composable fun Screen() { Column { Text("Hello", color = Color.Red) } }""",
         )
-        assertTrue(result is PreviewParseResult.Failure)
+        assertTrue("Expected literal text preview, got $result", result is PreviewParseResult.Success)
+        val text = (((result as PreviewParseResult.Success).content as PreviewNode.Column).children.single() as PreviewNode.Text)
+        assertEquals("Hello", text.value)
     }
 
     @Test
@@ -146,4 +150,68 @@ class ComposeSourceEngineTest {
         )
         assertTrue(result is PreviewParseResult.Failure)
     }
+
+    @Test
+    fun selectsPreviewFunctionAndExpandsMaterialThemeAndHelperComposable() {
+        val source = """
+            import androidx.compose.runtime.Composable
+            import androidx.compose.ui.tooling.preview.Preview
+            import androidx.compose.material3.MaterialTheme
+            @Composable
+            fun LoginScreen(onLoginClick: (String, String) -> Unit) {
+                var email by remember { mutableStateOf("") }
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Sign in")
+                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") })
+                    Button(onClick = { onLoginClick(email, email) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Login")
+                    }
+                }
+            }
+            @Preview(showBackground = true)
+            @Composable
+            fun SimpleLoginScreenPreview() {
+                MaterialTheme {
+                    LoginScreen(onLoginClick = { _, _ -> })
+                }
+            }
+            @Composable
+            fun AnotherHelper() { Column { Text("Not the preview") } }
+        """.trimIndent()
+        val result = ComposeSourceEngine.parse(source)
+        assertTrue("Expected preview success, got $result", result is PreviewParseResult.Success)
+        val success = result as PreviewParseResult.Success
+        assertEquals("SimpleLoginScreenPreview", success.entryPoint)
+        assertEquals(listOf("SimpleLoginScreenPreview"), success.previewEntries)
+        val root = success.content as PreviewNode.Column
+        assertEquals("Sign in", (root.children[0] as PreviewNode.Text).value)
+        assertEquals("Email", (root.children[1] as PreviewNode.TextField).label)
+        assertTrue(root.children[2] is PreviewNode.Button)
+    }
+
+    @Test
+    fun exposesMultiplePreviewFunctionsAndAllowsSelectingOne() {
+        val source = """
+            @Preview @Composable fun FirstPreview() { Column { Text("First") } }
+            @Composable @Preview(showBackground = true) fun SecondPreview() { Row { Text("Second") } }
+            @Composable fun Helper() { Text("Helper") }
+        """.trimIndent()
+        val first = ComposeSourceEngine.parse(source)
+        assertTrue(first is PreviewParseResult.Success)
+        assertEquals(listOf("FirstPreview", "SecondPreview"), (first as PreviewParseResult.Success).previewEntries)
+        val second = ComposeSourceEngine.parse(source, "SecondPreview")
+        assertTrue(second is PreviewParseResult.Success)
+        assertEquals("SecondPreview", (second as PreviewParseResult.Success).entryPoint)
+        assertTrue(second.content is PreviewNode.Row)
+    }
+
+    @Test
+    fun requiresPreviewWhenMultipleComposableFunctionsExist() {
+        val source = """
+            @Composable fun First() { Column { Text("A") } }
+            @Composable fun Second() { Column { Text("B") } }
+        """.trimIndent()
+        assertTrue(ComposeSourceEngine.parse(source) is PreviewParseResult.Failure)
+    }
+
 }
