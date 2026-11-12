@@ -25,6 +25,7 @@ import io.github.rosemoe.sora.widget.subscribeAlways
 /** Command bridge from the Compose toolbar to the native Sora editor view. */
 class SoraEditorController {
     private var editor: CodeEditor? = null
+    internal var suppressContentChanges: Boolean = false
 
     internal fun attach(value: CodeEditor) {
         editor = value
@@ -68,7 +69,6 @@ fun SoraCodeEditor(
         modifier = modifier,
         factory = { context ->
             KotlinTextMateSupport.initialize(context)
-            var suppressContentChanges = false
             CodeEditor(context).apply {
                 typefaceText = Typeface.MONOSPACE
                 textSizePx = TypedValue.applyDimension(
@@ -88,7 +88,7 @@ fun SoraCodeEditor(
                 setDiagnostics(buildDiagnostics(this, currentDiagnostics.value))
                 currentOnHistoryChanged.value(canUndo(), canRedo())
                 subscribeAlways<ContentChangeEvent> {
-                    if (!suppressContentChanges) {
+                    if (!controller.suppressContentChanges) {
                         currentOnSourceChange.value(text.toString())
                     }
                     currentOnHistoryChanged.value(canUndo(), canRedo())
@@ -98,13 +98,13 @@ fun SoraCodeEditor(
         update = { editor ->
             if (editor.text.toString() != source) {
                 // Reset history when switching files without marking the newly opened file dirty.
-                suppressContentChanges = true
+                controller.suppressContentChanges = true
                 try {
                     editor.setUndoEnabled(false)
                     editor.setText(source)
                     editor.setUndoEnabled(true)
                 } finally {
-                    suppressContentChanges = false
+                    controller.suppressContentChanges = false
                 }
                 currentOnHistoryChanged.value(editor.canUndo(), editor.canRedo())
             }
