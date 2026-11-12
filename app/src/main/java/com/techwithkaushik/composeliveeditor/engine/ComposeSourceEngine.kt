@@ -57,7 +57,7 @@ object ComposeSourceEngine {
 
 
     private data class PreviewSelection(val source: String, val selectedName: String, val previewNames: List<String>)
-    private data class FunctionDeclaration(val name: String, val body: String, val composable: Boolean, val preview: Boolean)
+    private data class FunctionDeclaration(val name: String, val body: String, val composable: Boolean, val preview: Boolean, val lineOffset: Int)
 
     /**
      * Selects the @Preview composable and safely inlines calls to other declared
@@ -118,7 +118,7 @@ object ComposeSourceEngine {
                 }
                 val close = matchingToken(tokens, cursor, "{", "}")
                 val body = source.substring(tokens[cursor].offset + 1, tokens[close].offset)
-                declarations += FunctionDeclaration(name, body, pendingComposable, pendingPreview)
+                declarations += FunctionDeclaration(name, body, pendingComposable, pendingPreview, source.substring(0, token.offset).count { it == '\n' })
                 pendingComposable = false
                 pendingPreview = false
                 index = close + 1
@@ -149,7 +149,7 @@ object ComposeSourceEngine {
         val helpers = composables.associateBy { it.name }
         val expandedBody = expandComposableCalls(selected.body, helpers, linkedSetOf(selected.name), 0)
         return PreviewSelection(
-            source = "@Composable fun ${selected.name}() { $expandedBody }",
+            source = "\\n".repeat(selected.lineOffset) + "@Composable fun ${selected.name}() { $expandedBody }",
             selectedName = selected.name,
             previewNames = names,
         )
