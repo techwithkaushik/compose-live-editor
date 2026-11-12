@@ -2,22 +2,29 @@
 
 Android-first Kotlin/Jetpack Compose source editor targeting Android API 26+ and ARM32-compatible builds.
 
-## Live preview
+## Live preview status
 
-The preview engine is a bounded Kotlin/Compose source interpreter. It renders parsed nodes using the app's real Jetpack Compose Material 3 runtime; it does not compile or execute arbitrary Kotlin.
+The current preview renderer is an explicitly limited source interpreter, **not** an Android Studio-equivalent Compose preview engine. It must never be described as universal Kotlin/Compose execution.
 
-Supported preview constructs:
-- One top-level `@Composable fun Name() { ... }` entry point.
-- Package and import declarations.
-- `Column`, `Row`, and `Box` layout containers.
-- `Card` and `Surface` containers.
-- `Text("literal")` and integer state interpolation.
-- `Button`, `OutlinedButton`, and `TextButton` with bounded integer state actions.
-- `Spacer(modifier = Modifier.height(n.dp))` for integer heights from 0 to 512 dp.
-- `Divider()` and `HorizontalDivider()`.
-- Integer state declared with `remember { mutableIntStateOf(n) }` or `remember { mutableStateOf(n) }`.
+Preview discovery follows the Compose convention: only a function annotated with both `@Preview` and `@Composable` is an entry point. Plain `@Composable` functions are reusable helpers and are not previewed automatically. Multiple annotated entry points are discoverable and selectable.
 
-Unsupported Kotlin constructs are rejected with source-located preview diagnostics. Limits: 64 KiB source, 32 layout nesting levels, 512 nodes, 32 state variables, and 32 actions per button.
+The current interpreter still understands only a bounded subset of Kotlin/Compose syntax. It does not resolve arbitrary imports, compile project source, execute custom composables, or provide complete Compose runtime semantics. Unsupported source must show a diagnostic rather than a fabricated rendering.
+
+### Required path to Android Studio-equivalent behaviour
+
+- Kotlin frontend / symbol resolution for the complete project source set.
+- Dependency and import resolution from the project's Gradle model.
+- Matching Kotlin and Compose compiler plugin pipeline.
+- Android-compatible compilation and DEX conversion.
+- Isolated loading and invocation of compiled preview entry points inside a real Compose host.
+- Multiple preview configurations, parameter providers, themes, state/recomposition and source-mapped diagnostics.
+- Measured physical-device validation on ARM32 before shipping the compiler backend.
+
+The stock Kotlin/JVM compiler experiment is not a validated Android runtime backend. Do not add its full dependency graph to the production APK until ART compatibility, D8, class loading, memory, latency and APK size are demonstrated on target hardware.
+
+## Workspace file manager
+
+The Files drawer manages the app-private `files/workspace` directory. Tap folders to navigate, tap files to open them in the editor, and long-press an item to rename or delete it. The drawer also supports creating files and folders. Open-file edits are autosaved back to the selected workspace file.
 
 ## Editor assistance
 
