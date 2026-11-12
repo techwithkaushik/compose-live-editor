@@ -21,6 +21,7 @@ import io.github.rosemoe.sora.langs.textmate.registry.model.ThemeModel
 import io.github.rosemoe.sora.langs.textmate.registry.provider.AssetsFileResolver
 import io.github.rosemoe.sora.widget.CodeEditor
 import io.github.rosemoe.sora.widget.subscribeAlways
+import org.eclipse.tm4e.core.registry.IThemeSource
 
 /** Command bridge from the Compose toolbar to the native Sora editor view. */
 class SoraEditorController {
@@ -47,7 +48,6 @@ class SoraEditorController {
 
     fun canRedo(): Boolean = editor?.canRedo() == true
 }
-import org.eclipse.tm4e.core.registry.IThemeSource
 
 /** Hosts Sora's native Kotlin highlighting, completion window and diagnostic quick-fix UI. */
 @Composable
