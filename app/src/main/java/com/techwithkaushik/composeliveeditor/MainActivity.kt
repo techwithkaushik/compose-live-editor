@@ -121,31 +121,31 @@ private fun ComposeEditorApp() {
     val currentSource = rememberUpdatedState(source)
     val currentPreviewName = rememberUpdatedState(selectedPreviewName)
     val currentShowPreview = rememberUpdatedState(showPreview)
-    val persistSession = {
-        preferences.edit()
+    val persistSession: (flushToDisk: Boolean) -> Unit = { flushToDisk ->
+        val editor = preferences.edit()
             .putString(KEY_SOURCE, currentSource.value)
             .putString(KEY_SELECTED_PREVIEW, currentPreviewName.value)
             .putBoolean(KEY_SHOW_PREVIEW, currentShowPreview.value)
-            .apply()
+        if (flushToDisk) editor.commit() else editor.apply()
     }
 
     // Debounced autosave protects the editor from losing recent edits while avoiding
     // a disk write for every keystroke.
     LaunchedEffect(source, selectedPreviewName, showPreview) {
         delay(350)
-        persistSession()
+        persistSession(false)
     }
 
     // Flush the latest editor session when the app goes to the background or
     // the composition is disposed (configuration change / activity recreation).
     DisposableEffect(lifecycleOwner, preferences) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) persistSession()
+            if (event == Lifecycle.Event.ON_STOP) persistSession(true)
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            persistSession()
+            persistSession(true)
         }
     }
 
