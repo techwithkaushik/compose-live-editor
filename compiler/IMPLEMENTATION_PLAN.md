@@ -12,7 +12,7 @@ Preview discovery now requires explicit `@Preview` plus `@Composable`. Plain com
 4. **Project model:** resolve all Kotlin source files, Gradle dependencies, imports, symbols and module classpaths.
 5. **Compilation:** compile the selected project source set with Compose transformation and actionable diagnostics.
 6. **DEX pipeline:** run D8 against Android APIs and the exact Compose artifacts used by the host app.
-7. **Isolated execution:** load generated DEX in a restricted process/class loader and invoke only discovered preview entry points.
+7. **Isolated execution:** run generated DEX in a dedicated isolated-UID Android service; transfer immutable DEX and required inputs through an explicit IPC contract; expose only a narrow preview-rendering protocol. A same-process class loader is not a sandbox.
 8. **Real preview host:** render with the actual Compose runtime, including nested/custom composables, Material 2/3, modifiers, state, recomposition, themes and preview parameters.
 9. **Incremental updates:** cancel stale builds, debounce edits, cache dependency/compiler outputs and refresh previews safely.
 10. **Validation:** run a fixture matrix covering arbitrary imports, multiple preview functions, helper composables, state, callbacks, parameter providers, compile errors and runtime exceptions on ARM32 devices.
