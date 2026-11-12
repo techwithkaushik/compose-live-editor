@@ -175,7 +175,7 @@ object ComposeSourceEngine {
                 stack.add(helper.name)
                 output.append(expandComposableCalls(helper.body, helpers, stack, depth + 1))
                 stack.remove(helper.name)
-                sourceCursor = tokenEnd(body, tokens[close])
+                sourceCursor = tokens.getOrNull(close + 1)?.offset ?: body.length
                 index = close + 1
                 continue
             }
