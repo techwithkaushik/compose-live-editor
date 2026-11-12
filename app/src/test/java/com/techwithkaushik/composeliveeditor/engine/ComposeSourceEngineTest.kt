@@ -201,8 +201,9 @@ class ComposeSourceEngineTest {
         assertEquals(listOf("FirstPreview", "SecondPreview"), (first as PreviewParseResult.Success).previewEntries)
         val second = ComposeSourceEngine.parse(source, "SecondPreview")
         assertTrue(second is PreviewParseResult.Success)
-        assertEquals("SecondPreview", (second as PreviewParseResult.Success).entryPoint)
-        assertTrue(second.content is PreviewNode.Row)
+        val secondSuccess = second as PreviewParseResult.Success
+        assertEquals("SecondPreview", secondSuccess.entryPoint)
+        assertTrue(secondSuccess.content is PreviewNode.Row)
     }
 
     @Test
