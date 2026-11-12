@@ -83,10 +83,16 @@ object ComposeSourceEngine {
             }
             if (token.text == "@") {
                 index++
-                val annotation = tokens.getOrNull(index)?.text.orEmpty()
+                var annotation = tokens.getOrNull(index)?.text.orEmpty()
+                index++
+                while (tokens.getOrNull(index)?.text == "." &&
+                    tokens.getOrNull(index + 1)?.kind == Kind.IDENTIFIER
+                ) {
+                    annotation = tokens[index + 1].text
+                    index += 2
+                }
                 if (annotation == "Composable") pendingComposable = true
                 if (annotation == "Preview") pendingPreview = true
-                index++
                 if (tokens.getOrNull(index)?.text == "(") {
                     index = matchingToken(tokens, index, "(", ")") + 1
                 }
