@@ -71,4 +71,32 @@ class ComposeEditorLanguageToolsTest {
         assertTrue(ComposeEditorLanguageTools.importCandidates("Add").size > 1)
         assertTrue(labels.size > 100)
     }
+    @Test
+    fun wildcardComposeImportsResolveSymbolsAndAreNotMarkedUnused() {
+        val diagnostics = ComposeEditorLanguageTools.analyze(
+            """
+                import androidx.compose.material3.*
+                import androidx.compose.runtime.*
+
+                @Composable
+                fun Screen() {
+                    Column {
+                        Text("Hello")
+                        Button(onClick = { }) { Text("Continue") }
+                        var count by remember { mutableIntStateOf(0) }
+                    }
+                }
+            """.trimIndent(),
+        )
+
+        assertTrue(
+            "Wildcard imports should resolve Compose symbols, diagnostics: $diagnostics",
+            diagnostics.none { it.ruleId.startsWith("missing-import:") },
+        )
+        assertTrue(
+            "Wildcard imports should not be marked unused, diagnostics: $diagnostics",
+            diagnostics.none { it.ruleId == "unused-import" },
+        )
+    }
+
 }
