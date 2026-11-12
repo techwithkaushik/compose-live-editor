@@ -68,6 +68,7 @@ fun SoraCodeEditor(
         modifier = modifier,
         factory = { context ->
             KotlinTextMateSupport.initialize(context)
+            var suppressContentChanges = false
             CodeEditor(context).apply {
                 typefaceText = Typeface.MONOSPACE
                 textSizePx = TypedValue.applyDimension(
@@ -87,17 +88,24 @@ fun SoraCodeEditor(
                 setDiagnostics(buildDiagnostics(this, currentDiagnostics.value))
                 currentOnHistoryChanged.value(canUndo(), canRedo())
                 subscribeAlways<ContentChangeEvent> {
-                    currentOnSourceChange.value(text.toString())
+                    if (!suppressContentChanges) {
+                        currentOnSourceChange.value(text.toString())
+                    }
                     currentOnHistoryChanged.value(canUndo(), canRedo())
                 }
             }
         },
         update = { editor ->
             if (editor.text.toString() != source) {
-                // Reset history when switching to another workspace file.
-                editor.setUndoEnabled(false)
-                editor.setText(source)
-                editor.setUndoEnabled(true)
+                // Reset history when switching files without marking the newly opened file dirty.
+                suppressContentChanges = true
+                try {
+                    editor.setUndoEnabled(false)
+                    editor.setText(source)
+                    editor.setUndoEnabled(true)
+                } finally {
+                    suppressContentChanges = false
+                }
                 currentOnHistoryChanged.value(editor.canUndo(), editor.canRedo())
             }
             if (editor.colorScheme !is TextMateColorScheme ||
