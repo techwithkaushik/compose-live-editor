@@ -87,6 +87,53 @@ class PreviewCompilationPipelineTest {
     }
 
     @Test
+    fun missingDexBackendIsReportedAfterSuccessfulCompilation() {
+        var compilerCalls = 0
+        val compiler = object : KotlinComposeCompilerBackend {
+            override val backendId = "test-compiler"
+            override fun compile(request: PreviewCompilationRequest): KotlinCompilationResult {
+                compilerCalls++
+                return KotlinCompilationResult.Success(
+                    KotlinCompilerArtifact(File("program.jar"), "sample.ScreenKt"),
+                )
+            }
+        }
+
+        val result = PreviewCompilationPipeline(compiler, null, null).build(request())
+
+        assertEquals(1, compilerCalls)
+        assertTrue(result is PreviewPipelineResult.Unavailable)
+        assertEquals(PreviewPipelineStage.DEX, (result as PreviewPipelineResult.Unavailable).stage)
+    }
+
+    @Test
+    fun missingRuntimeBackendIsReportedAfterSuccessfulDexConversion() {
+        var dexCalls = 0
+        val compiler = object : KotlinComposeCompilerBackend {
+            override val backendId = "test-compiler"
+            override fun compile(request: PreviewCompilationRequest) =
+                KotlinCompilationResult.Success(
+                    KotlinCompilerArtifact(File("program.jar"), "sample.ScreenKt"),
+                )
+        }
+        val dex = object : AndroidDexBackend {
+            override val backendId = "test-d8"
+            override fun convert(input: KotlinCompilerArtifact, request: DexCompilationRequest): DexCompilationResult {
+                dexCalls++
+                return DexCompilationResult.Success(
+                    DexArtifact(listOf(File("classes.dex")), input.previewClassName),
+                )
+            }
+        }
+
+        val result = PreviewCompilationPipeline(compiler, dex, null).build(request())
+
+        assertEquals(1, dexCalls)
+        assertTrue(result is PreviewPipelineResult.Unavailable)
+        assertEquals(PreviewPipelineStage.RUNTIME_LOAD, (result as PreviewPipelineResult.Unavailable).stage)
+    }
+
+    @Test
     fun successfulBuildRunsCompilerDexAndRuntimeInOrder() {
         val calls = mutableListOf<String>()
         val compiler = object : KotlinComposeCompilerBackend {
